@@ -13,3 +13,11 @@
 
 # Dependency directories (remove the comment below to include it)
 # vendor/
+.idea/
+main
+
+# for test
+report.html
+tech-db-forum.best.txt
+tech-db-forum.dat.gz
+technopark-dbms-forum
