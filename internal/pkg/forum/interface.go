@@ -4,6 +4,7 @@ import "forumI/internal/models"
 
 type UseCase interface {
 	Forum(forum models.Forum) (models.Forum, models.StatusCode)
+	GetForum(forum models.Forum) (models.Forum, models.StatusCode)
 }
 
 type Repository interface {

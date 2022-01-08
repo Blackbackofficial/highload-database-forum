@@ -36,5 +36,9 @@ func (u UseCase) Forum(forum models.Forum) (models.Forum, models.StatusCode) {
 	forum.Posts = 0
 	forum.Threads = 0
 
-	return forum, models.Okey
+	return forum, models.Created
+}
+
+func (u UseCase) GetForum(forum models.Forum) (models.Forum, models.StatusCode) {
+	return u.repo.GetForum(forum)
 }

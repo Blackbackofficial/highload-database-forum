@@ -4,6 +4,7 @@ import (
 	"forumI/internal/models"
 	"forumI/internal/pkg/forum"
 	"forumI/internal/pkg/utils"
+	"github.com/gorilla/mux"
 	"github.com/mailru/easyjson"
 	"net/http"
 )
@@ -25,5 +26,17 @@ func (h Handler) CreateForum(w http.ResponseWriter, r *http.Request) {
 	}
 
 	forumS, status := h.uc.Forum(forumS)
+	utils.Response(w, status, forumS)
+}
+
+func (h Handler) ForumInfo(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	slug, found := vars["slug"]
+	if !found {
+		utils.Response(w, models.NotFound, nil)
+		return
+	}
+	forumS := models.Forum{Slug: slug}
+	forumS, status := h.uc.GetForum(forumS)
 	utils.Response(w, status, forumS)
 }
