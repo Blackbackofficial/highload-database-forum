@@ -26,7 +26,7 @@ const (
 	GetThreadsDescNotNil           = "select id, title, author, forum, message, votes, slug, created from threads where forum=$1 order by created desc limit $2;"
 	GetThreadsDescNil              = "select id, title, author, forum, message, votes, slug, created from threads where forum=$1 order by created asc limit $2;"
 	SelectPostById                 = "select author, post, created_at, forum, isedited, parent, threads from posts where id = $1;"
-	SelectThreadId                 = "select id, title, author, forum, message, votes, slug, created from thread where id=$1 LIMIT 1;"
+	SelectThreadId                 = "select id, title, author, forum, message, votes, slug, created from threads where id=$1 LIMIT 1;"
 	UpdatePostMessage              = "update posts set message=coalesce(nullif($1, ''), message), isedited = case when $1 = '' or message = $1 then isedited else true end where id=$2 returning *"
 	ClearAll                       = "truncate table users, forum, threads, posts, votes, users_forum CASCADE;"
 	SelectCountUsers               = "select count(*) from users;"
@@ -34,6 +34,7 @@ const (
 	SelectCountThreads             = "select count(*) from threads;"
 	SelectCountPosts               = "select count(*) from posts;"
 	InsertManyPosts                = "insert into posts(author, created, forum, message, parent, thread) values"
+	UpdateThread                   = "update threads set title=coalesce(nullif($1, ''), title), message=coalesce(nullif($2, ''), message) where %s returning *"
 )
 
 type repoPostgres struct {
@@ -303,4 +304,27 @@ func (r *repoPostgres) InPosts(postsS []models.Post, thread models.Thread) ([]mo
 	}
 	defer rows.Close()
 	return postsS, nil
+}
+
+func (r repoPostgres) UpdateThreadInfo(upThread models.Thread) (models.Thread, models.StatusCode) {
+	threadS := models.Thread{}
+
+	if upThread.Slug == "" {
+		rowQuery := fmt.Sprintf(UpdateThread, `id=$3`)
+		row := r.Conn.QueryRow(context.Background(), rowQuery, upThread.Title, upThread.Message, upThread.ID)
+		err := row.Scan(&threadS.ID, &threadS.Title, &threadS.Author, &threadS.Created,
+			&threadS.Forum, &threadS.Message, &threadS.Slug, &threadS.Votes)
+		if err != nil {
+			return models.Thread{}, models.NotFound
+		}
+	} else {
+		rowQuery := fmt.Sprintf(UpdateThread, `slug=$3`)
+		row := r.Conn.QueryRow(context.Background(), rowQuery, upThread.Title, upThread.Message, upThread.Slug)
+		err := row.Scan(&threadS.ID, &threadS.Title, &threadS.Author, &threadS.Created,
+			&threadS.Forum, &threadS.Message, &threadS.Slug, &threadS.Votes)
+		if err != nil {
+			return models.Thread{}, models.NotFound
+		}
+	}
+	return threadS, models.Okey
 }

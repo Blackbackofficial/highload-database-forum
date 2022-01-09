@@ -146,3 +146,13 @@ func (u UseCase) CreatePosts(inPosts []models.Post, thread models.Thread) ([]mod
 	}
 	return posts, models.Created
 }
+
+func (u UseCase) UpdateThreadInfo(slugOrId string, upThread models.Thread) (models.Thread, models.StatusCode) {
+	isInt, err := strconv.Atoi(slugOrId)
+	if err != nil {
+		upThread.Slug = slugOrId
+	} else {
+		upThread.ID = isInt
+	}
+	return u.repo.UpdateThreadInfo(upThread)
+}

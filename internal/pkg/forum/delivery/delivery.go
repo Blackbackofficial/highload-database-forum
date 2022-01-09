@@ -238,3 +238,20 @@ func (h Handler) GetThreadInfo(w http.ResponseWriter, r *http.Request) {
 	finalThread, status := h.uc.CheckThreadIdOrSlug(slugOrId)
 	utils.Response(w, status, finalThread)
 }
+
+func (h Handler) UpdateThreadInfo(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	slugOrId, found := vars["slug_or_id"]
+	if !found {
+		utils.Response(w, models.NotFound, nil)
+		return
+	}
+	threadS := models.Thread{}
+	err := easyjson.UnmarshalFromReader(r.Body, &threadS)
+	if err != nil {
+		utils.Response(w, models.InternalError, nil)
+		return
+	}
+	finalThread, status := h.uc.UpdateThreadInfo(slugOrId, threadS)
+	utils.Response(w, status, finalThread)
+}
