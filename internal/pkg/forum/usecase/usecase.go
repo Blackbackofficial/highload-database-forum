@@ -169,3 +169,21 @@ func (u *UseCase) GetPostOfThread(limit string, since string, desc string, sort 
 		return u.repo.GetPostsFlat(limit, since, desc, ID)
 	}
 }
+
+func (u *UseCase) Voted(vote models.Vote, thread models.Thread) (models.Thread, models.StatusCode) {
+	err := u.repo.InVoted(vote)
+	if err != nil {
+		if pgError, ok := err.(pgx.PgError); ok && pgError.Code == "23505" {
+			_, err := u.repo.UpVote(vote)
+			if err != nil {
+				return models.Thread{}, models.InternalError
+			}
+			return thread, models.Okey
+		}
+		if pgErr, ok := err.(pgx.PgError); ok && pgErr.Code == "23503" {
+			return models.Thread{}, models.NotFound
+		}
+		return models.Thread{}, models.InternalError
+	}
+	return thread, models.Okey
+}

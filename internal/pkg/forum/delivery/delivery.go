@@ -294,3 +294,38 @@ func (h *Handler) GetPostOfThread(w http.ResponseWriter, r *http.Request) {
 	finalPosts, status := h.uc.GetPostOfThread(limit, since, desc, sort, thread.ID)
 	utils.Response(w, status, finalPosts)
 }
+
+func (h Handler) Voted(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	slugOrId, found := vars["slug_or_id"]
+	if !found {
+		utils.Response(w, models.NotFound, nil)
+		return
+	}
+
+	thread, status := h.uc.CheckThreadIdOrSlug(slugOrId)
+	if status != models.Okey {
+		utils.Response(w, status, nil) // return not found
+		return
+	}
+
+	voteS := models.Vote{}
+	err := easyjson.UnmarshalFromReader(r.Body, &voteS)
+	if err != nil {
+		utils.Response(w, models.InternalError, nil)
+		return
+	}
+
+	if thread.ID != 0 {
+		voteS.Thread = thread.ID
+	}
+
+	_, statusV := h.uc.Voted(voteS, thread)
+	if statusV != models.Okey {
+		utils.Response(w, models.InternalError, nil)
+		return
+	}
+
+	finalThread, statusT := h.uc.CheckThreadIdOrSlug(slugOrId)
+	utils.Response(w, statusT, finalThread)
+}

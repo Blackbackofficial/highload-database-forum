@@ -45,7 +45,9 @@ const (
 	SelectPostParentSinceDescNotNil = "select id, author, created, forum, isedited, message, parent, thread from posts where path[1] in (select id from posts where thread = $1 and parent is null order by id desc limit $2) order by path[1] desc, path, id;"
 	SelectPostParentSinceDescNil    = "select id, author, created, forum, isedited, message, parent, thread from posts where path[1] in (select id from posts where thread = $1 and parent is null order by id limit $2) order by path, id;"
 	SelectPostParentDescNotNil      = "select id, author, created, forum, isedited, message, parent, thread from posts where path[1] IN (select id from posts where thread = $1 and parent is null and path[1] < (select path[1] from posts where id = $2) order by id desc limit $3) order by path[1] desc, path, id;"
-	SelectPostParentDescNil         = "SELECT id, author, created, forum, isedited, message, parent, thread from posts where path[1] IN (select id from posts where thread = $1 and parent is null and path[1] > (select path[1] from posts where id = $2) order by id asc limit $3) order by path, id;"
+	SelectPostParentDescNil         = "select id, author, created, forum, isedited, message, parent, thread from posts where path[1] IN (select id from posts where thread = $1 and parent is null and path[1] > (select path[1] from posts where id = $2) order by id asc limit $3) order by path, id;"
+	UpdateVote                      = "update votes set voice=$1 where author=$2 and thread=$3;"
+	InsertVote                      = "insert into votes(author, voice, thread) values ($1, $2, $3);"
 )
 
 type repoPostgres struct {
@@ -558,4 +560,20 @@ func (r *repoPostgres) GetPostsParent(limit string, since string, desc string, I
 		}
 	}
 	return manyPosts, models.Okey
+}
+
+func (r *repoPostgres) InVoted(vote models.Vote) error {
+	_, err := r.Conn.Exec(context.Background(), InsertVote, vote.Nickname, vote.Voice, vote.Thread)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (r *repoPostgres) UpVote(vote models.Vote) (models.Vote, error) {
+	_, err := r.Conn.Exec(context.Background(), UpdateVote, vote.Nickname, vote.Voice, vote.Thread)
+	if err != nil {
+		return models.Vote{}, err
+	}
+	return vote, nil
 }

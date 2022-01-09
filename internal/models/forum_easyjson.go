@@ -17,7 +17,7 @@ var (
 	_ easyjson.Marshaler
 )
 
-func easyjsonC8d74561DecodeBdIvanForumInternalModels(in *jlexer.Lexer, out *Forum) {
+func easyjsonC8d74561DecodeForumIInternalModels(in *jlexer.Lexer, out *Forum) {
 	isTopLevel := in.IsStart()
 	if in.IsNull() {
 		if isTopLevel {
@@ -56,7 +56,7 @@ func easyjsonC8d74561DecodeBdIvanForumInternalModels(in *jlexer.Lexer, out *Foru
 		in.Consumed()
 	}
 }
-func easyjsonC8d74561EncodeBdIvanForumInternalModels(out *jwriter.Writer, in Forum) {
+func easyjsonC8d74561EncodeForumIInternalModels(out *jwriter.Writer, in Forum) {
 	out.RawByte('{')
 	first := true
 	_ = first
@@ -96,23 +96,23 @@ func easyjsonC8d74561EncodeBdIvanForumInternalModels(out *jwriter.Writer, in For
 // MarshalJSON supports json.Marshaler interface
 func (v Forum) MarshalJSON() ([]byte, error) {
 	w := jwriter.Writer{}
-	easyjsonC8d74561EncodeBdIvanForumInternalModels(&w, v)
+	easyjsonC8d74561EncodeForumIInternalModels(&w, v)
 	return w.Buffer.BuildBytes(), w.Error
 }
 
 // MarshalEasyJSON supports easyjson.Marshaler interface
 func (v Forum) MarshalEasyJSON(w *jwriter.Writer) {
-	easyjsonC8d74561EncodeBdIvanForumInternalModels(w, v)
+	easyjsonC8d74561EncodeForumIInternalModels(w, v)
 }
 
 // UnmarshalJSON supports json.Unmarshaler interface
 func (v *Forum) UnmarshalJSON(data []byte) error {
 	r := jlexer.Lexer{Data: data}
-	easyjsonC8d74561DecodeBdIvanForumInternalModels(&r, v)
+	easyjsonC8d74561DecodeForumIInternalModels(&r, v)
 	return r.Error()
 }
 
 // UnmarshalEasyJSON supports easyjson.Unmarshaler interface
 func (v *Forum) UnmarshalEasyJSON(l *jlexer.Lexer) {
-	easyjsonC8d74561DecodeBdIvanForumInternalModels(l, v)
+	easyjsonC8d74561DecodeForumIInternalModels(l, v)
 }
