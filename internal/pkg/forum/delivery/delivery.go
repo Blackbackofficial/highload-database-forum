@@ -7,6 +7,8 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/mailru/easyjson"
 	"net/http"
+	"strconv"
+	"strings"
 )
 
 type Handler struct {
@@ -121,6 +123,32 @@ func (h Handler) GetThreadsForum(w http.ResponseWriter, r *http.Request) {
 	utils.Response(w, status, users)
 }
 
+// GetPostInfo /post/{id}/details
 func (h Handler) GetPostInfo(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	idV := vars["id"]
+	idV, found := vars["id"]
+	if !found {
+		utils.Response(w, models.NotFound, nil)
+		return
+	}
 
+	id, _ := strconv.Atoi(idV)
+	query := r.URL.Query()
+
+	var related []string
+	if relateds := query["related"]; len(relateds) > 0 {
+		related = strings.Split(relateds[0], ",")
+	}
+
+	postFull := models.PostFull{}
+	err := easyjson.UnmarshalFromReader(r.Body, &postFull)
+	if err != nil {
+		utils.Response(w, models.InternalError, nil)
+		return
+	}
+
+	postFull.Post.ID = id
+	finalPostF, status := h.uc.GetFullPostInfo(postFull, related)
+	utils.Response(w, status, finalPostF)
 }

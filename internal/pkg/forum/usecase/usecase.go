@@ -98,3 +98,7 @@ func (u UseCase) GetThreadsOfForum(forum models.Forum, limit string, since strin
 
 	return threads, models.Okey
 }
+
+func (u UseCase) GetFullPostInfo(posts models.PostFull, related []string) (models.PostFull, models.StatusCode) {
+	return u.repo.GetFullPostInfo(posts, related)
+}

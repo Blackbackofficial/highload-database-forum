@@ -22,6 +22,8 @@ const (
 	GetThreadsSinceDescNil         = "select id, title, author, forum, message, votes, slug, created from threads where forum=$1 and created >= $2 order by created asc limit $3;"
 	GetThreadsDescNotNil           = "select id, title, author, forum, message, votes, slug, created from threads where forum=$1 order by created desc limit $2;"
 	GetThreadsDescNil              = "select id, title, author, forum, message, votes, slug, created from threads where forum=$1 order by created asc limit $2;"
+	SelectPostById                 = "select author, post, created_at, forum, isedited, parent, threads from posts where id = $1;"
+	SelectThreadId                 = "select id, title, author, forum, message, votes, slug, created from thread where id=$1 LIMIT 1;"
 )
 
 type repoPostgres struct {
@@ -159,4 +161,51 @@ func (r repoPostgres) GetThreadsOfForum(forum models.Forum, limit string, since 
 		threads = append(threads, threadS)
 	}
 	return threads, models.Okey
+}
+
+func (r repoPostgres) GetIdThread(id int) (models.Thread, models.StatusCode) {
+	threadS := models.Thread{}
+	row := r.Conn.QueryRow(context.Background(), SelectThreadId, id)
+
+	err := row.Scan(&threadS.Id, &threadS.Title, &threadS.Author, &threadS.Forum, &threadS.Message,
+		&threadS.Votes, &threadS.Slug, &threadS.Created)
+	if err != nil {
+		return models.Thread{}, models.NotFound
+	}
+	return threadS, models.Okey
+}
+
+func (r repoPostgres) GetFullPostInfo(posts models.PostFull, related []string) (models.PostFull, models.StatusCode) {
+	post := models.Post{}
+	postFull := models.PostFull{Author: nil, Forum: nil, Post: models.Post{}, Thread: nil}
+
+	post.ID = posts.Post.ID
+
+	row := r.Conn.QueryRow(context.Background(), SelectPostById, posts.Post.ID)
+	err := row.Scan(&post.Author, &post.Message, &post.Created, &post.Forum, &post.IsEdited, &post.Parent, &post.Thread)
+
+	if err != nil {
+		return postFull, models.NotFound
+	}
+
+	postFull.Post = post
+
+	for i := 0; i < len(related); i++ {
+		if related[i] == "user" {
+			user, _ := r.GetUser(post.Author)
+			postFull.Author = &user
+		}
+		if related[i] == "forum" {
+
+			forum, _ := r.GetForum(post.Forum)
+			postFull.Forum = &forum
+
+		}
+		if related[i] == "thread" {
+			thread, _ := r.GetIdThread(post.Thread)
+			postFull.Thread = &thread
+
+		}
+	}
+	return postFull, models.Okey
 }
