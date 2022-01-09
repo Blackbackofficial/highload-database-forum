@@ -15,7 +15,7 @@ func NewRepoUsecase(repo forum.Repository) forum.UseCase {
 	return &UseCase{repo: repo}
 }
 
-func (u UseCase) Forum(forum models.Forum) (models.Forum, models.StatusCode) {
+func (u *UseCase) Forum(forum models.Forum) (models.Forum, models.StatusCode) {
 	user, status := u.repo.GetUser(forum.User)
 	if status != models.Okey {
 		return models.Forum{}, status
@@ -39,11 +39,11 @@ func (u UseCase) Forum(forum models.Forum) (models.Forum, models.StatusCode) {
 	return forum, models.Created
 }
 
-func (u UseCase) GetForum(forum models.Forum) (models.Forum, models.StatusCode) {
+func (u *UseCase) GetForum(forum models.Forum) (models.Forum, models.StatusCode) {
 	return u.repo.GetForum(forum.Slug)
 }
 
-func (u UseCase) CreateThreadsForum(thread models.Thread) (models.Thread, models.StatusCode) {
+func (u *UseCase) CreateThreadsForum(thread models.Thread) (models.Thread, models.StatusCode) {
 	forumS, status := u.repo.GetForum(thread.Forum)
 	if status != models.Okey {
 		return models.Thread{}, status
@@ -69,7 +69,7 @@ func (u UseCase) CreateThreadsForum(thread models.Thread) (models.Thread, models
 	return thread, models.Created
 }
 
-func (u UseCase) GetUsersOfForum(forum models.Forum, limit string, since string, desc string) ([]models.User, models.StatusCode) {
+func (u *UseCase) GetUsersOfForum(forum models.Forum, limit string, since string, desc string) ([]models.User, models.StatusCode) {
 	_, status := u.repo.GetForum(forum.Slug)
 	if status != models.Okey {
 		return nil, status
@@ -82,7 +82,7 @@ func (u UseCase) GetUsersOfForum(forum models.Forum, limit string, since string,
 	return users, models.Okey
 }
 
-func (u UseCase) GetThreadsOfForum(forum models.Forum, limit string, since string, desc string) ([]models.Thread, models.StatusCode) {
+func (u *UseCase) GetThreadsOfForum(forum models.Forum, limit string, since string, desc string) ([]models.Thread, models.StatusCode) {
 	_, status := u.repo.GetForum(forum.Slug)
 	if status != models.Okey {
 		return nil, status
@@ -95,15 +95,23 @@ func (u UseCase) GetThreadsOfForum(forum models.Forum, limit string, since strin
 	return threads, models.Okey
 }
 
-func (u UseCase) GetFullPostInfo(posts models.PostFull, related []string) (models.PostFull, models.StatusCode) {
+func (u *UseCase) GetFullPostInfo(posts models.PostFull, related []string) (models.PostFull, models.StatusCode) {
 	return u.repo.GetFullPostInfo(posts, related)
 }
 
-func (u UseCase) UpdatePostInfo(postUpdate models.PostUpdate) (models.Post, models.StatusCode) {
+func (u *UseCase) UpdatePostInfo(postUpdate models.PostUpdate) (models.Post, models.StatusCode) {
 	postOne := models.Post{ID: postUpdate.ID}
 	postOne, status := u.repo.UpdatePostInfo(postOne, postUpdate)
 	if status != models.Okey {
 		return models.Post{}, models.NotFound
 	}
 	return postOne, models.Okey
+}
+
+func (u *UseCase) GetClear() models.StatusCode {
+	return u.repo.GetClear()
+}
+
+func (u *UseCase) GetStatus() models.Status {
+	return u.repo.GetStatus()
 }

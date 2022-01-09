@@ -10,6 +10,8 @@ type UseCase interface {
 	GetThreadsOfForum(forum models.Forum, limit string, since string, desc string) ([]models.Thread, models.StatusCode)
 	GetFullPostInfo(posts models.PostFull, related []string) (models.PostFull, models.StatusCode)
 	UpdatePostInfo(postUpdate models.PostUpdate) (models.Post, models.StatusCode)
+	GetClear() models.StatusCode
+	GetStatus() models.Status
 }
 
 type Repository interface {
@@ -23,4 +25,6 @@ type Repository interface {
 	GetFullPostInfo(posts models.PostFull, related []string) (models.PostFull, models.StatusCode)
 	GetIdThread(id int) (models.Thread, models.StatusCode)
 	UpdatePostInfo(post models.Post, postUpdate models.PostUpdate) (models.Post, models.StatusCode)
+	GetClear() models.StatusCode
+	GetStatus() models.Status
 }

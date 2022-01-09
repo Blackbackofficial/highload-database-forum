@@ -176,3 +176,15 @@ func (h Handler) UpdatePostInfo(w http.ResponseWriter, r *http.Request) {
 	finalPostU, status := h.uc.UpdatePostInfo(postUpdate)
 	utils.Response(w, status, finalPostU)
 }
+
+// GetClear /service/clear
+func (h Handler) GetClear(w http.ResponseWriter, r *http.Request) {
+	status := h.uc.GetClear()
+	utils.Response(w, status, nil)
+}
+
+// GetStatus /service/status
+func (h Handler) GetStatus(w http.ResponseWriter, r *http.Request) {
+	statusS := h.uc.GetStatus()
+	utils.Response(w, models.Okey, statusS)
+}

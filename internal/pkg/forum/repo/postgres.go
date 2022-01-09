@@ -25,6 +25,11 @@ const (
 	SelectPostById                 = "select author, post, created_at, forum, isedited, parent, threads from posts where id = $1;"
 	SelectThreadId                 = "select id, title, author, forum, message, votes, slug, created from thread where id=$1 LIMIT 1;"
 	UpdatePostMessage              = "update posts set message=coalesce(nullif($1, ''), message), isedited = case when $1 = '' or message = $1 then isedited else true end where id=$2 returning *"
+	ClearAll                       = "truncate table users, forum, threads, posts, votes, users_forum CASCADE;"
+	SelectCountUsers               = "select count(*) from users;"
+	SelectCountForum               = "select count(*) from forum;"
+	SelectCountThreads             = "select count(*) from threads;"
+	SelectCountPosts               = "select count(*) from posts;"
 )
 
 type repoPostgres struct {
@@ -35,7 +40,7 @@ func NewRepoPostgres(Conn *pgxpool.Pool) forum.Repository {
 	return &repoPostgres{Conn: Conn}
 }
 
-func (r repoPostgres) GetUser(name string) (models.User, models.StatusCode) {
+func (r *repoPostgres) GetUser(name string) (models.User, models.StatusCode) {
 	var userM models.User
 	row := r.Conn.QueryRow(context.Background(), SelectUserByNickname, name)
 	err := row.Scan(&userM.NickName, &userM.FullName, &userM.About, &userM.Email)
@@ -45,14 +50,15 @@ func (r repoPostgres) GetUser(name string) (models.User, models.StatusCode) {
 	return userM, models.Okey
 }
 
-func (r repoPostgres) InForum(forum models.Forum) error {
+func (r *repoPostgres) InForum(forum models.Forum) error {
 	_, err := r.Conn.Exec(context.Background(), InsertInForum, forum.Slug, forum.User, forum.Title)
 	if err != nil {
 		return err
 	}
 	return nil
 }
-func (r repoPostgres) GetForum(slug string) (models.Forum, models.StatusCode) {
+
+func (r *repoPostgres) GetForum(slug string) (models.Forum, models.StatusCode) {
 	forumM := models.Forum{}
 	row := r.Conn.QueryRow(context.Background(), SelectForumBySlug, slug)
 	err := row.Scan(&forumM.Slug, &forumM.User, &forumM.Title, &forumM.Posts, &forumM.Threads)
@@ -62,7 +68,7 @@ func (r repoPostgres) GetForum(slug string) (models.Forum, models.StatusCode) {
 	return forumM, models.Okey
 }
 
-func (r repoPostgres) InThread(thread models.Thread) (models.Thread, error) {
+func (r *repoPostgres) InThread(thread models.Thread) (models.Thread, error) {
 	threadS := models.Thread{}
 	row := r.Conn.QueryRow(context.Background(), InsertInThread, thread.Title,
 		thread.Author, thread.Created, thread.Forum, thread.Message, thread.Slug)
@@ -75,7 +81,7 @@ func (r repoPostgres) InThread(thread models.Thread) (models.Thread, error) {
 	return threadS, nil
 }
 
-func (r repoPostgres) GetThreadSlug(slug string) (models.Thread, models.StatusCode) {
+func (r *repoPostgres) GetThreadSlug(slug string) (models.Thread, models.StatusCode) {
 	threadS := models.Thread{}
 	row := r.Conn.QueryRow(context.Background(), SelectThreadSlug, slug)
 	err := row.Scan(&threadS.ID, &threadS.Title, &threadS.Author, &threadS.Forum,
@@ -86,7 +92,7 @@ func (r repoPostgres) GetThreadSlug(slug string) (models.Thread, models.StatusCo
 	return threadS, models.Okey
 }
 
-func (r repoPostgres) GetUsersOfForum(forum models.Forum, limit string, since string, desc string) ([]models.User, models.StatusCode) {
+func (r *repoPostgres) GetUsersOfForum(forum models.Forum, limit string, since string, desc string) ([]models.User, models.StatusCode) {
 	var query string
 	if desc != "" {
 		if since != "" {
@@ -118,7 +124,7 @@ func (r repoPostgres) GetUsersOfForum(forum models.Forum, limit string, since st
 	return users, models.Okey
 }
 
-func (r repoPostgres) GetThreadsOfForum(forum models.Forum, limit string, since string, desc string) ([]models.Thread, models.StatusCode) {
+func (r *repoPostgres) GetThreadsOfForum(forum models.Forum, limit string, since string, desc string) ([]models.Thread, models.StatusCode) {
 	var rows *pgx.Rows
 	threads := make([]models.Thread, 0)
 
@@ -164,7 +170,7 @@ func (r repoPostgres) GetThreadsOfForum(forum models.Forum, limit string, since 
 	return threads, models.Okey
 }
 
-func (r repoPostgres) GetIdThread(id int) (models.Thread, models.StatusCode) {
+func (r *repoPostgres) GetIdThread(id int) (models.Thread, models.StatusCode) {
 	threadS := models.Thread{}
 	row := r.Conn.QueryRow(context.Background(), SelectThreadId, id)
 
@@ -176,7 +182,7 @@ func (r repoPostgres) GetIdThread(id int) (models.Thread, models.StatusCode) {
 	return threadS, models.Okey
 }
 
-func (r repoPostgres) GetFullPostInfo(posts models.PostFull, related []string) (models.PostFull, models.StatusCode) {
+func (r *repoPostgres) GetFullPostInfo(posts models.PostFull, related []string) (models.PostFull, models.StatusCode) {
 	post := models.Post{}
 	postFull := models.PostFull{Author: nil, Forum: nil, Post: models.Post{}, Thread: nil}
 
@@ -211,7 +217,7 @@ func (r repoPostgres) GetFullPostInfo(posts models.PostFull, related []string) (
 	return postFull, models.Okey
 }
 
-func (r repoPostgres) UpdatePostInfo(postOne models.Post, postUpdate models.PostUpdate) (models.Post, models.StatusCode) {
+func (r *repoPostgres) UpdatePostInfo(postOne models.Post, postUpdate models.PostUpdate) (models.Post, models.StatusCode) {
 	row := r.Conn.QueryRow(context.Background(), UpdatePostMessage, postUpdate.Message, postOne.ID)
 	err := row.Scan(&postOne.ID, &postOne.Author, &postOne.Created, &postOne.Forum,
 		&postOne.IsEdited, &postOne.Message, &postOne.Parent, &postOne.Thread, &postOne.Path)
@@ -219,4 +225,40 @@ func (r repoPostgres) UpdatePostInfo(postOne models.Post, postUpdate models.Post
 		return postOne, models.NotFound
 	}
 	return postOne, models.Okey
+}
+
+func (r *repoPostgres) GetClear() models.StatusCode {
+	_, err := r.Conn.Exec(context.Background(), ClearAll)
+	if err != nil {
+		return models.InternalError
+	}
+	return models.Okey
+}
+
+func (r repoPostgres) GetStatus() models.Status {
+	statusS := models.Status{}
+	row := r.Conn.QueryRow(context.Background(), SelectCountUsers)
+	err := row.Scan(&statusS.User)
+	if err != nil {
+		statusS.User = 0
+	}
+
+	row = r.Conn.QueryRow(context.Background(), SelectCountForum)
+	err = row.Scan(&statusS.Forum)
+	if err != nil {
+		statusS.Forum = 0
+	}
+
+	row = r.Conn.QueryRow(context.Background(), SelectCountThreads)
+	err = row.Scan(&statusS.Thread)
+	if err != nil {
+		statusS.Thread = 0
+	}
+
+	row = r.Conn.QueryRow(context.Background(), SelectCountPosts)
+	err = row.Scan(&statusS.Post)
+	if err != nil {
+		statusS.Post = 0
+	}
+	return statusS
 }
