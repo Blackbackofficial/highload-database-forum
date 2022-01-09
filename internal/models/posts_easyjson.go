@@ -17,7 +17,7 @@ var (
 	_ easyjson.Marshaler
 )
 
-func easyjsonDc9e8747DecodeBdIvanForumInternalModels(in *jlexer.Lexer, out *Post) {
+func easyjsonDc9e8747DecodeForumIInternalModels(in *jlexer.Lexer, out *Post) {
 	isTopLevel := in.IsStart()
 	if in.IsNull() {
 		if isTopLevel {
@@ -54,6 +54,8 @@ func easyjsonDc9e8747DecodeBdIvanForumInternalModels(in *jlexer.Lexer, out *Post
 			if data := in.Raw(); in.Ok() {
 				in.AddError((out.Created).UnmarshalJSON(data))
 			}
+		case "path":
+			out.Path = int(in.Int())
 		default:
 			in.SkipRecursive()
 		}
@@ -64,7 +66,7 @@ func easyjsonDc9e8747DecodeBdIvanForumInternalModels(in *jlexer.Lexer, out *Post
 		in.Consumed()
 	}
 }
-func easyjsonDc9e8747EncodeBdIvanForumInternalModels(out *jwriter.Writer, in Post) {
+func easyjsonDc9e8747EncodeForumIInternalModels(out *jwriter.Writer, in Post) {
 	out.RawByte('{')
 	first := true
 	_ = first
@@ -119,29 +121,34 @@ func easyjsonDc9e8747EncodeBdIvanForumInternalModels(out *jwriter.Writer, in Pos
 		out.RawString(prefix)
 		out.Raw((in.Created).MarshalJSON())
 	}
+	if in.Path != 0 {
+		const prefix string = ",\"path\":"
+		out.RawString(prefix)
+		out.Int(int(in.Path))
+	}
 	out.RawByte('}')
 }
 
 // MarshalJSON supports json.Marshaler interface
 func (v Post) MarshalJSON() ([]byte, error) {
 	w := jwriter.Writer{}
-	easyjsonDc9e8747EncodeBdIvanForumInternalModels(&w, v)
+	easyjsonDc9e8747EncodeForumIInternalModels(&w, v)
 	return w.Buffer.BuildBytes(), w.Error
 }
 
 // MarshalEasyJSON supports easyjson.Marshaler interface
 func (v Post) MarshalEasyJSON(w *jwriter.Writer) {
-	easyjsonDc9e8747EncodeBdIvanForumInternalModels(w, v)
+	easyjsonDc9e8747EncodeForumIInternalModels(w, v)
 }
 
 // UnmarshalJSON supports json.Unmarshaler interface
 func (v *Post) UnmarshalJSON(data []byte) error {
 	r := jlexer.Lexer{Data: data}
-	easyjsonDc9e8747DecodeBdIvanForumInternalModels(&r, v)
+	easyjsonDc9e8747DecodeForumIInternalModels(&r, v)
 	return r.Error()
 }
 
 // UnmarshalEasyJSON supports easyjson.Unmarshaler interface
 func (v *Post) UnmarshalEasyJSON(l *jlexer.Lexer) {
-	easyjsonDc9e8747DecodeBdIvanForumInternalModels(l, v)
+	easyjsonDc9e8747DecodeForumIInternalModels(l, v)
 }

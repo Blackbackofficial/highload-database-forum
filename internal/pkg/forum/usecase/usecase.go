@@ -36,7 +36,6 @@ func (u UseCase) Forum(forum models.Forum) (models.Forum, models.StatusCode) {
 
 	forum.Posts = 0
 	forum.Threads = 0
-
 	return forum, models.Created
 }
 
@@ -67,7 +66,6 @@ func (u UseCase) CreateThreadsForum(thread models.Thread) (models.Thread, models
 		}
 		return models.Thread{}, models.InternalError
 	}
-
 	return thread, models.Created
 }
 
@@ -81,7 +79,6 @@ func (u UseCase) GetUsersOfForum(forum models.Forum, limit string, since string,
 	if status != models.Okey {
 		return nil, status
 	}
-
 	return users, models.Okey
 }
 
@@ -95,10 +92,18 @@ func (u UseCase) GetThreadsOfForum(forum models.Forum, limit string, since strin
 	if status != models.Okey {
 		return nil, status
 	}
-
 	return threads, models.Okey
 }
 
 func (u UseCase) GetFullPostInfo(posts models.PostFull, related []string) (models.PostFull, models.StatusCode) {
 	return u.repo.GetFullPostInfo(posts, related)
+}
+
+func (u UseCase) UpdatePostInfo(postUpdate models.PostUpdate) (models.Post, models.StatusCode) {
+	postOne := models.Post{ID: postUpdate.ID}
+	postOne, status := u.repo.UpdatePostInfo(postOne, postUpdate)
+	if status != models.Okey {
+		return models.Post{}, models.NotFound
+	}
+	return postOne, models.Okey
 }

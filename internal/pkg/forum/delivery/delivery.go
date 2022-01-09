@@ -126,7 +126,6 @@ func (h Handler) GetThreadsForum(w http.ResponseWriter, r *http.Request) {
 // GetPostInfo /post/{id}/details
 func (h Handler) GetPostInfo(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	idV := vars["id"]
 	idV, found := vars["id"]
 	if !found {
 		utils.Response(w, models.NotFound, nil)
@@ -151,4 +150,29 @@ func (h Handler) GetPostInfo(w http.ResponseWriter, r *http.Request) {
 	postFull.Post.ID = id
 	finalPostF, status := h.uc.GetFullPostInfo(postFull, related)
 	utils.Response(w, status, finalPostF)
+}
+
+// UpdatePostInfo /post/{id}/details
+func (h Handler) UpdatePostInfo(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	ids, found := vars["id"]
+	if !found {
+		utils.Response(w, models.NotFound, nil)
+		return
+	}
+
+	postUpdate := models.PostUpdate{}
+	err := easyjson.UnmarshalFromReader(r.Body, &postUpdate)
+	if err != nil {
+		utils.Response(w, models.InternalError, nil)
+		return
+	}
+	id, err := strconv.Atoi(ids)
+
+	if err == nil {
+		postUpdate.ID = id
+	}
+
+	finalPostU, status := h.uc.UpdatePostInfo(postUpdate)
+	utils.Response(w, status, finalPostU)
 }

@@ -1,6 +1,6 @@
 package models
 
-// easyjson -all ./internal/models/posts.go
+// easyjson -all ./internal/models/post_full.go
 
 type PostFull struct {
 	Thread *Thread `json:"thread,omitempty"`

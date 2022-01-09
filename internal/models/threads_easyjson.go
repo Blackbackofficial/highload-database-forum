@@ -37,7 +37,7 @@ func easyjson1e13f025DecodeForumIInternalModels(in *jlexer.Lexer, out *Thread) {
 		}
 		switch key {
 		case "id":
-			out.Id = int(in.Int())
+			out.ID = int(in.Int())
 		case "title":
 			out.Title = string(in.String())
 		case "author":
@@ -68,11 +68,11 @@ func easyjson1e13f025EncodeForumIInternalModels(out *jwriter.Writer, in Thread) 
 	out.RawByte('{')
 	first := true
 	_ = first
-	if in.Id != 0 {
+	if in.ID != 0 {
 		const prefix string = ",\"id\":"
 		first = false
 		out.RawString(prefix[1:])
-		out.Int(int(in.Id))
+		out.Int(int(in.ID))
 	}
 	{
 		const prefix string = ",\"title\":"

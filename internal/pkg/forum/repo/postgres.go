@@ -24,6 +24,7 @@ const (
 	GetThreadsDescNil              = "select id, title, author, forum, message, votes, slug, created from threads where forum=$1 order by created asc limit $2;"
 	SelectPostById                 = "select author, post, created_at, forum, isedited, parent, threads from posts where id = $1;"
 	SelectThreadId                 = "select id, title, author, forum, message, votes, slug, created from thread where id=$1 LIMIT 1;"
+	UpdatePostMessage              = "update posts set message=coalesce(nullif($1, ''), message), isedited = case when $1 = '' or message = $1 then isedited else true end where id=$2 returning *"
 )
 
 type repoPostgres struct {
@@ -66,7 +67,7 @@ func (r repoPostgres) InThread(thread models.Thread) (models.Thread, error) {
 	row := r.Conn.QueryRow(context.Background(), InsertInThread, thread.Title,
 		thread.Author, thread.Created, thread.Forum, thread.Message, thread.Slug)
 
-	err := row.Scan(&threadS.Id, &threadS.Title, &threadS.Author, &threadS.Created,
+	err := row.Scan(&threadS.ID, &threadS.Title, &threadS.Author, &threadS.Created,
 		&threadS.Forum, &threadS.Message, &threadS.Slug, &threadS.Votes)
 	if err != nil {
 		return models.Thread{}, err
@@ -77,7 +78,7 @@ func (r repoPostgres) InThread(thread models.Thread) (models.Thread, error) {
 func (r repoPostgres) GetThreadSlug(slug string) (models.Thread, models.StatusCode) {
 	threadS := models.Thread{}
 	row := r.Conn.QueryRow(context.Background(), SelectThreadSlug, slug)
-	err := row.Scan(&threadS.Id, &threadS.Title, &threadS.Author, &threadS.Forum,
+	err := row.Scan(&threadS.ID, &threadS.Title, &threadS.Author, &threadS.Forum,
 		&threadS.Message, &threadS.Votes, &threadS.Slug, &threadS.Created)
 	if err != nil {
 		return models.Thread{}, models.NotFound
@@ -153,7 +154,7 @@ func (r repoPostgres) GetThreadsOfForum(forum models.Forum, limit string, since 
 
 	for rows.Next() {
 		threadS := models.Thread{}
-		err := rows.Scan(&threadS.Id, &threadS.Title, &threadS.Author, &threadS.Forum, &threadS.Message,
+		err := rows.Scan(&threadS.ID, &threadS.Title, &threadS.Author, &threadS.Forum, &threadS.Message,
 			&threadS.Votes, &threadS.Slug, &threadS.Created)
 		if err != nil {
 			continue
@@ -167,7 +168,7 @@ func (r repoPostgres) GetIdThread(id int) (models.Thread, models.StatusCode) {
 	threadS := models.Thread{}
 	row := r.Conn.QueryRow(context.Background(), SelectThreadId, id)
 
-	err := row.Scan(&threadS.Id, &threadS.Title, &threadS.Author, &threadS.Forum, &threadS.Message,
+	err := row.Scan(&threadS.ID, &threadS.Title, &threadS.Author, &threadS.Forum, &threadS.Message,
 		&threadS.Votes, &threadS.Slug, &threadS.Created)
 	if err != nil {
 		return models.Thread{}, models.NotFound
@@ -208,4 +209,14 @@ func (r repoPostgres) GetFullPostInfo(posts models.PostFull, related []string) (
 		}
 	}
 	return postFull, models.Okey
+}
+
+func (r repoPostgres) UpdatePostInfo(postOne models.Post, postUpdate models.PostUpdate) (models.Post, models.StatusCode) {
+	row := r.Conn.QueryRow(context.Background(), UpdatePostMessage, postUpdate.Message, postOne.ID)
+	err := row.Scan(&postOne.ID, &postOne.Author, &postOne.Created, &postOne.Forum,
+		&postOne.IsEdited, &postOne.Message, &postOne.Parent, &postOne.Thread, &postOne.Path)
+	if err != nil {
+		return postOne, models.NotFound
+	}
+	return postOne, models.Okey
 }

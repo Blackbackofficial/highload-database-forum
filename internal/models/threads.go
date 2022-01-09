@@ -5,7 +5,7 @@ import "time"
 // easyjson -all ./internal/models/threads.go
 
 type Thread struct {
-	Id      int       `json:"id,omitempty"`
+	ID      int       `json:"id,omitempty"`
 	Title   string    `json:"title"`
 	Author  string    `json:"author"`
 	Forum   string    `json:"forum"`
