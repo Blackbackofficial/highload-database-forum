@@ -134,7 +134,7 @@ func (u *UseCase) CheckThreadIdOrSlug(slugOrId string) (models.Thread, models.St
 	}
 }
 
-func (u UseCase) CreatePosts(inPosts []models.Post, thread models.Thread) ([]models.Post, models.StatusCode) {
+func (u *UseCase) CreatePosts(inPosts []models.Post, thread models.Thread) ([]models.Post, models.StatusCode) {
 	posts := make([]models.Post, 0)
 	posts, err := u.repo.InPosts(inPosts, thread)
 	if err != nil {
@@ -147,7 +147,7 @@ func (u UseCase) CreatePosts(inPosts []models.Post, thread models.Thread) ([]mod
 	return posts, models.Created
 }
 
-func (u UseCase) UpdateThreadInfo(slugOrId string, upThread models.Thread) (models.Thread, models.StatusCode) {
+func (u *UseCase) UpdateThreadInfo(slugOrId string, upThread models.Thread) (models.Thread, models.StatusCode) {
 	isInt, err := strconv.Atoi(slugOrId)
 	if err != nil {
 		upThread.Slug = slugOrId
@@ -155,4 +155,17 @@ func (u UseCase) UpdateThreadInfo(slugOrId string, upThread models.Thread) (mode
 		upThread.ID = isInt
 	}
 	return u.repo.UpdateThreadInfo(upThread)
+}
+
+func (u *UseCase) GetPostOfThread(limit string, since string, desc string, sort string, ID int) ([]models.Post, models.StatusCode) {
+	switch sort {
+	case "flat":
+		return u.repo.GetPostsFlat(limit, since, desc, ID)
+	case "tree":
+		return u.repo.GetPostsTree(limit, since, desc, ID)
+	case "parent_tree":
+		return u.repo.GetPostsParent(limit, since, desc, ID)
+	default:
+		return u.repo.GetPostsFlat(limit, since, desc, ID)
+	}
 }

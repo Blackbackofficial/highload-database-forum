@@ -15,6 +15,7 @@ type UseCase interface {
 	CheckThreadIdOrSlug(slugOrId string) (models.Thread, models.StatusCode)
 	CreatePosts(createPosts []models.Post, thread models.Thread) ([]models.Post, models.StatusCode)
 	UpdateThreadInfo(slugOrId string, upThread models.Thread) (models.Thread, models.StatusCode)
+	GetPostOfThread(limit string, since string, desc string, sort string, ID int) ([]models.Post, models.StatusCode)
 }
 
 type Repository interface {
@@ -32,4 +33,7 @@ type Repository interface {
 	GetStatus() models.Status
 	InPosts(posts []models.Post, thread models.Thread) ([]models.Post, error)
 	UpdateThreadInfo(upThread models.Thread) (models.Thread, models.StatusCode)
+	GetPostsFlat(limit string, since string, desc string, ID int) ([]models.Post, models.StatusCode)
+	GetPostsTree(limit string, since string, desc string, ID int) ([]models.Post, models.StatusCode)
+	GetPostsParent(limit string, since string, desc string, ID int) ([]models.Post, models.StatusCode)
 }

@@ -222,7 +222,8 @@ func (h *Handler) CreatePosts(w http.ResponseWriter, r *http.Request) {
 	utils.Response(w, status, createPosts)
 }
 
-func (h Handler) GetThreadInfo(w http.ResponseWriter, r *http.Request) {
+// GetThreadInfo /thread/{slug_or_id}/details
+func (h *Handler) GetThreadInfo(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	slugOrId, found := vars["slug_or_id"]
 	if !found {
@@ -239,7 +240,8 @@ func (h Handler) GetThreadInfo(w http.ResponseWriter, r *http.Request) {
 	utils.Response(w, status, finalThread)
 }
 
-func (h Handler) UpdateThreadInfo(w http.ResponseWriter, r *http.Request) {
+// UpdateThreadInfo /thread/{slug_or_id}/details
+func (h *Handler) UpdateThreadInfo(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	slugOrId, found := vars["slug_or_id"]
 	if !found {
@@ -254,4 +256,41 @@ func (h Handler) UpdateThreadInfo(w http.ResponseWriter, r *http.Request) {
 	}
 	finalThread, status := h.uc.UpdateThreadInfo(slugOrId, threadS)
 	utils.Response(w, status, finalThread)
+}
+
+// GetPostOfThread /thread/{slug_or_id}/posts
+func (h *Handler) GetPostOfThread(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	slugOrId, found := vars["slug_or_id"]
+	if !found {
+		utils.Response(w, models.NotFound, nil)
+		return
+	}
+	limit := ""
+	since := ""
+	desc := ""
+	sort := ""
+
+	query := r.URL.Query()
+	if limits := query["limit"]; len(limits) > 0 {
+		limit = limits[0]
+	}
+	if sinces := query["since"]; len(sinces) > 0 {
+		since = sinces[0]
+	}
+	if descs := query["desc"]; len(descs) > 0 {
+		desc = descs[0]
+	}
+	if sorts := query["sort"]; len(sorts) > 0 {
+		sort = sorts[0]
+	}
+
+	thread, status := h.uc.CheckThreadIdOrSlug(slugOrId)
+	if status != models.Okey {
+		utils.Response(w, status, nil) // return not found
+		return
+	}
+
+	finalPosts, status := h.uc.GetPostOfThread(limit, since, desc, sort, thread.ID)
+	utils.Response(w, status, finalPosts)
 }

@@ -6,35 +6,46 @@ import (
 	"forumI/internal/models"
 	"forumI/internal/pkg/forum"
 	"forumI/internal/pkg/utils"
-	"github.com/jackc/pgx"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"strings"
 	"time"
 )
 
 const (
-	SelectUserByNickname           = "select nickname, fullname, about, email from users where nickname=$1 limit 1;"
-	SelectForumBySlug              = "select slug, \"user\", title, posts, threads from forum where slug=$1 limit 1;"
-	InsertInForum                  = "insert into forum(slug, \"user\", title) values ($1, $2, $3);"
-	InsertInThread                 = "insert into threads(title, author, created, forum, message, slug) values ($1, $2, $3, $4, $5, $6) returning *"
-	SelectThreadSlug               = "select id, title, author, forum, message, votes, slug, created from threads where slug=$1 limit 1;"
-	GetUsersOfForumDescNotNilSince = "select nickname, fullname, about, email from users_forum where slug=$1 and nickname < '%s' order by nickname desc limit nullif($2, 0)"
-	GetUsersOfForumDescSinceNil    = "select nickname, fullname, about, email from users_forum where slug=$1 order by nickname desc limit nullif($2, 0)"
-	GetUsersOfForumDescNil         = "select nickname, fullname, about, email from users_forum where slug=$1 and nickname > '%s' order by nickname limit nullif($2, 0)"
-	GetThreadsSinceDescNotNil      = "select id, title, author, forum, message, votes, slug, created from threads where forum=$1 and created <= $2 order by created desc limit $3;"
-	GetThreadsSinceDescNil         = "select id, title, author, forum, message, votes, slug, created from threads where forum=$1 and created >= $2 order by created asc limit $3;"
-	GetThreadsDescNotNil           = "select id, title, author, forum, message, votes, slug, created from threads where forum=$1 order by created desc limit $2;"
-	GetThreadsDescNil              = "select id, title, author, forum, message, votes, slug, created from threads where forum=$1 order by created asc limit $2;"
-	SelectPostById                 = "select author, post, created_at, forum, isedited, parent, threads from posts where id = $1;"
-	SelectThreadId                 = "select id, title, author, forum, message, votes, slug, created from threads where id=$1 LIMIT 1;"
-	UpdatePostMessage              = "update posts set message=coalesce(nullif($1, ''), message), isedited = case when $1 = '' or message = $1 then isedited else true end where id=$2 returning *"
-	ClearAll                       = "truncate table users, forum, threads, posts, votes, users_forum CASCADE;"
-	SelectCountUsers               = "select count(*) from users;"
-	SelectCountForum               = "select count(*) from forum;"
-	SelectCountThreads             = "select count(*) from threads;"
-	SelectCountPosts               = "select count(*) from posts;"
-	InsertManyPosts                = "insert into posts(author, created, forum, message, parent, thread) values"
-	UpdateThread                   = "update threads set title=coalesce(nullif($1, ''), title), message=coalesce(nullif($2, ''), message) where %s returning *"
+	SelectUserByNickname            = "select nickname, fullname, about, email from users where nickname=$1 limit 1;"
+	SelectForumBySlug               = "select slug, \"user\", title, posts, threads from forum where slug=$1 limit 1;"
+	InsertInForum                   = "insert into forum(slug, \"user\", title) values ($1, $2, $3);"
+	InsertInThread                  = "insert into threads(title, author, created, forum, message, slug) values ($1, $2, $3, $4, $5, $6) returning *"
+	SelectThreadSlug                = "select id, title, author, forum, message, votes, slug, created from threads where slug=$1 limit 1;"
+	GetUsersOfForumDescNotNilSince  = "select nickname, fullname, about, email from users_forum where slug=$1 and nickname < '%s' order by nickname desc limit nullif($2, 0)"
+	GetUsersOfForumDescSinceNil     = "select nickname, fullname, about, email from users_forum where slug=$1 order by nickname desc limit nullif($2, 0)"
+	GetUsersOfForumDescNil          = "select nickname, fullname, about, email from users_forum where slug=$1 and nickname > '%s' order by nickname limit nullif($2, 0)"
+	GetThreadsSinceDescNotNil       = "select id, title, author, forum, message, votes, slug, created from threads where forum=$1 and created <= $2 order by created desc limit $3;"
+	GetThreadsSinceDescNil          = "select id, title, author, forum, message, votes, slug, created from threads where forum=$1 and created >= $2 order by created asc limit $3;"
+	GetThreadsDescNotNil            = "select id, title, author, forum, message, votes, slug, created from threads where forum=$1 order by created desc limit $2;"
+	GetThreadsDescNil               = "select id, title, author, forum, message, votes, slug, created from threads where forum=$1 order by created asc limit $2;"
+	SelectPostById                  = "select author, post, created_at, forum, isedited, parent, threads from posts where id = $1;"
+	SelectThreadId                  = "select id, title, author, forum, message, votes, slug, created from threads where id=$1 LIMIT 1;"
+	UpdatePostMessage               = "update posts set message=coalesce(nullif($1, ''), message), isedited = case when $1 = '' or message = $1 then isedited else true end where id=$2 returning *"
+	ClearAll                        = "truncate table users, forum, threads, posts, votes, users_forum CASCADE;"
+	SelectCountUsers                = "select count(*) from users;"
+	SelectCountForum                = "select count(*) from forum;"
+	SelectCountThreads              = "select count(*) from threads;"
+	SelectCountPosts                = "select count(*) from posts;"
+	InsertManyPosts                 = "insert into posts(author, created, forum, message, parent, thread) values"
+	UpdateThread                    = "update threads set title=coalesce(nullif($1, ''), title), message=coalesce(nullif($2, ''), message) where %s returning *"
+	SelectPostSinceDescNotNil       = "select id, author, created, forum, isedited, message, parent, thread from posts where thread=$1 order by id desc limit $2;"
+	SelectPostSinceDescNil          = "select id, author, created, forum, isedited, message, parent, thread from posts where thread=$1 order by id limit $2;"
+	SelectPostDescNotNil            = "select id, author, created, forum, isedited, message, parent, thread from posts where thread=$1 and id < $2 order by id desc limit $3;"
+	SelectPostDescNil               = "select id, author, created, forum, isedited, message, parent, thread from posts where thread=$1 and id > $2 order by id limit $3;"
+	SelectPostTreeSinceDescNotNil   = "select id, author, created, forum, isedited, message, parent, thread from posts where thread=$1 order by path desc, id desc limit $2;"
+	SelectPostTreeSinceDescNil      = "select id, author, created, forum, isedited, message, parent, thread from posts where thread=$1 order by path asc, id asc limit $2;"
+	SelectPostTreeDescNotNil        = "select id, author, created, forum, isedited, message, parent, thread from posts where thread=$1 and path < (select path from posts where id = $2) order by path desc, id desc limit $3;"
+	SelectPostTreeDescNil           = "select id, author, created, forum, isedited, message, parent, thread from posts where thread=$1 and path > (select path from posts where id = $2) order by path asc, id asc limit $3;"
+	SelectPostParentSinceDescNotNil = "select id, author, created, forum, isedited, message, parent, thread from posts where path[1] in (select id from posts where thread = $1 and parent is null order by id desc limit $2) order by path[1] desc, path, id;"
+	SelectPostParentSinceDescNil    = "select id, author, created, forum, isedited, message, parent, thread from posts where path[1] in (select id from posts where thread = $1 and parent is null order by id limit $2) order by path, id;"
+	SelectPostParentDescNotNil      = "select id, author, created, forum, isedited, message, parent, thread from posts where path[1] IN (select id from posts where thread = $1 and parent is null and path[1] < (select path[1] from posts where id = $2) order by id desc limit $3) order by path[1] desc, path, id;"
+	SelectPostParentDescNil         = "SELECT id, author, created, forum, isedited, message, parent, thread from posts where path[1] IN (select id from posts where thread = $1 and parent is null and path[1] > (select path[1] from posts where id = $2) order by id asc limit $3) order by path, id;"
 )
 
 type repoPostgres struct {
@@ -130,7 +141,6 @@ func (r *repoPostgres) GetUsersOfForum(forum models.Forum, limit string, since s
 }
 
 func (r *repoPostgres) GetThreadsOfForum(forum models.Forum, limit string, since string, desc string) ([]models.Thread, models.StatusCode) {
-	var rows *pgx.Rows
 	threads := make([]models.Thread, 0)
 
 	if since != "" {
@@ -140,12 +150,30 @@ func (r *repoPostgres) GetThreadsOfForum(forum models.Forum, limit string, since
 				return threads, models.NotFound
 			}
 			defer rows.Close()
+			for rows.Next() {
+				threadS := models.Thread{}
+				err := rows.Scan(&threadS.ID, &threadS.Title, &threadS.Author, &threadS.Forum, &threadS.Message,
+					&threadS.Votes, &threadS.Slug, &threadS.Created)
+				if err != nil {
+					continue
+				}
+				threads = append(threads, threadS)
+			}
 		} else {
 			rows, err := r.Conn.Query(context.Background(), GetThreadsSinceDescNil, forum.Slug, since, limit)
 			if err != nil {
 				return threads, models.NotFound
 			}
 			defer rows.Close()
+			for rows.Next() {
+				threadS := models.Thread{}
+				err := rows.Scan(&threadS.ID, &threadS.Title, &threadS.Author, &threadS.Forum, &threadS.Message,
+					&threadS.Votes, &threadS.Slug, &threadS.Created)
+				if err != nil {
+					continue
+				}
+				threads = append(threads, threadS)
+			}
 		}
 	} else {
 		if desc != "" {
@@ -154,23 +182,31 @@ func (r *repoPostgres) GetThreadsOfForum(forum models.Forum, limit string, since
 				return threads, models.NotFound
 			}
 			defer rows.Close()
+			for rows.Next() {
+				threadS := models.Thread{}
+				err := rows.Scan(&threadS.ID, &threadS.Title, &threadS.Author, &threadS.Forum, &threadS.Message,
+					&threadS.Votes, &threadS.Slug, &threadS.Created)
+				if err != nil {
+					continue
+				}
+				threads = append(threads, threadS)
+			}
 		} else {
 			rows, err := r.Conn.Query(context.Background(), GetThreadsDescNil, forum.Slug, limit)
 			if err != nil {
 				return threads, models.NotFound
 			}
 			defer rows.Close()
+			for rows.Next() {
+				threadS := models.Thread{}
+				err := rows.Scan(&threadS.ID, &threadS.Title, &threadS.Author, &threadS.Forum, &threadS.Message,
+					&threadS.Votes, &threadS.Slug, &threadS.Created)
+				if err != nil {
+					continue
+				}
+				threads = append(threads, threadS)
+			}
 		}
-	}
-
-	for rows.Next() {
-		threadS := models.Thread{}
-		err := rows.Scan(&threadS.ID, &threadS.Title, &threadS.Author, &threadS.Forum, &threadS.Message,
-			&threadS.Votes, &threadS.Slug, &threadS.Created)
-		if err != nil {
-			continue
-		}
-		threads = append(threads, threadS)
 	}
 	return threads, models.Okey
 }
@@ -195,7 +231,6 @@ func (r *repoPostgres) GetFullPostInfo(posts models.PostFull, related []string) 
 
 	row := r.Conn.QueryRow(context.Background(), SelectPostById, posts.Post.ID)
 	err := row.Scan(&post.Author, &post.Message, &post.Created, &post.Forum, &post.IsEdited, &post.Parent, &post.Thread)
-
 	if err != nil {
 		return postFull, models.NotFound
 	}
@@ -203,17 +238,15 @@ func (r *repoPostgres) GetFullPostInfo(posts models.PostFull, related []string) 
 	postFull.Post = post
 
 	for i := 0; i < len(related); i++ {
-		if related[i] == "user" {
+		if "user" == related[i] {
 			user, _ := r.GetUser(post.Author)
 			postFull.Author = &user
 		}
-		if related[i] == "forum" {
-
-			forum, _ := r.GetForum(post.Forum)
-			postFull.Forum = &forum
-
+		if "forum" == related[i] {
+			forumS, _ := r.GetForum(post.Forum)
+			postFull.Forum = &forumS
 		}
-		if related[i] == "thread" {
+		if "thread" == related[i] {
 			thread, _ := r.GetIdThread(post.Thread)
 			postFull.Thread = &thread
 
@@ -306,9 +339,8 @@ func (r *repoPostgres) InPosts(postsS []models.Post, thread models.Thread) ([]mo
 	return postsS, nil
 }
 
-func (r repoPostgres) UpdateThreadInfo(upThread models.Thread) (models.Thread, models.StatusCode) {
+func (r *repoPostgres) UpdateThreadInfo(upThread models.Thread) (models.Thread, models.StatusCode) {
 	threadS := models.Thread{}
-
 	if upThread.Slug == "" {
 		rowQuery := fmt.Sprintf(UpdateThread, `id=$3`)
 		row := r.Conn.QueryRow(context.Background(), rowQuery, upThread.Title, upThread.Message, upThread.ID)
@@ -327,4 +359,203 @@ func (r repoPostgres) UpdateThreadInfo(upThread models.Thread) (models.Thread, m
 		}
 	}
 	return threadS, models.Okey
+}
+
+func (r *repoPostgres) GetPostsFlat(limit string, since string, desc string, ID int) ([]models.Post, models.StatusCode) {
+	manyPosts := make([]models.Post, 0)
+	if since != "" {
+		if desc != "" {
+			rows, err := r.Conn.Query(context.Background(), SelectPostSinceDescNotNil, ID, limit)
+			if err != nil {
+				return manyPosts, models.InternalError
+			}
+			defer rows.Close()
+			for rows.Next() {
+				onePost := models.Post{}
+				err := rows.Scan(&onePost.ID, &onePost.Author, &onePost.Created, &onePost.Forum, &onePost.IsEdited, &onePost.Message, &onePost.Parent, &onePost.Thread)
+				if err != nil {
+					return manyPosts, models.InternalError
+				}
+				manyPosts = append(manyPosts, onePost)
+			}
+		} else {
+			rows, err := r.Conn.Query(context.Background(), SelectPostSinceDescNil, ID, limit)
+			if err != nil {
+				return manyPosts, models.InternalError
+			}
+			defer rows.Close()
+			for rows.Next() {
+				onePost := models.Post{}
+				err := rows.Scan(&onePost.ID, &onePost.Author, &onePost.Created, &onePost.Forum, &onePost.IsEdited, &onePost.Message, &onePost.Parent, &onePost.Thread)
+				if err != nil {
+					return manyPosts, models.InternalError
+				}
+				manyPosts = append(manyPosts, onePost)
+			}
+		}
+	} else {
+		if desc != "" {
+			rows, err := r.Conn.Query(context.Background(), SelectPostDescNotNil, ID, since, limit)
+			if err != nil {
+				return manyPosts, models.InternalError
+			}
+			defer rows.Close()
+			for rows.Next() {
+				onePost := models.Post{}
+				err := rows.Scan(&onePost.ID, &onePost.Author, &onePost.Created, &onePost.Forum, &onePost.IsEdited, &onePost.Message, &onePost.Parent, &onePost.Thread)
+				if err != nil {
+					return manyPosts, models.InternalError
+				}
+				manyPosts = append(manyPosts, onePost)
+			}
+		} else {
+			rows, err := r.Conn.Query(context.Background(), SelectPostDescNil, ID, since, limit)
+			if err != nil {
+				return manyPosts, models.InternalError
+			}
+			defer rows.Close()
+			for rows.Next() {
+				onePost := models.Post{}
+				err := rows.Scan(&onePost.ID, &onePost.Author, &onePost.Created, &onePost.Forum, &onePost.IsEdited, &onePost.Message, &onePost.Parent, &onePost.Thread)
+				if err != nil {
+					return manyPosts, models.InternalError
+				}
+				manyPosts = append(manyPosts, onePost)
+			}
+		}
+	}
+	return manyPosts, models.Okey
+}
+
+func (r *repoPostgres) GetPostsTree(limit string, since string, desc string, ID int) ([]models.Post, models.StatusCode) {
+	manyPosts := make([]models.Post, 0)
+	if since == "" {
+		if desc != "" {
+			rows, err := r.Conn.Query(context.Background(), SelectPostTreeSinceDescNotNil, ID, limit)
+			if err != nil {
+				return manyPosts, models.InternalError
+			}
+			defer rows.Close()
+			for rows.Next() {
+				onePost := models.Post{}
+				err = rows.Scan(&onePost.ID, &onePost.Author, &onePost.Created, &onePost.Forum, &onePost.IsEdited, &onePost.Message, &onePost.Parent, &onePost.Thread)
+				if err != nil {
+					return manyPosts, models.InternalError
+				}
+				manyPosts = append(manyPosts, onePost)
+			}
+		} else {
+			rows, err := r.Conn.Query(context.Background(), SelectPostTreeSinceDescNil, ID, limit)
+			if err != nil {
+				return manyPosts, models.InternalError
+			}
+			defer rows.Close()
+			for rows.Next() {
+				onePost := models.Post{}
+				err = rows.Scan(&onePost.ID, &onePost.Author, &onePost.Created, &onePost.Forum, &onePost.IsEdited, &onePost.Message, &onePost.Parent, &onePost.Thread)
+				if err != nil {
+					return manyPosts, models.InternalError
+				}
+				manyPosts = append(manyPosts, onePost)
+			}
+		}
+	} else {
+		if desc == "" {
+			rows, err := r.Conn.Query(context.Background(), SelectPostTreeDescNotNil, ID, since, limit)
+			if err != nil {
+				return manyPosts, models.InternalError
+			}
+			defer rows.Close()
+			for rows.Next() {
+				onePost := models.Post{}
+				err = rows.Scan(&onePost.ID, &onePost.Author, &onePost.Created, &onePost.Forum, &onePost.IsEdited, &onePost.Message, &onePost.Parent, &onePost.Thread)
+				if err != nil {
+					return manyPosts, models.InternalError
+				}
+				manyPosts = append(manyPosts, onePost)
+			}
+		} else {
+			rows, err := r.Conn.Query(context.Background(), SelectPostTreeDescNil, ID, since, limit)
+			if err != nil {
+				return manyPosts, models.InternalError
+			}
+			defer rows.Close()
+			for rows.Next() {
+				onePost := models.Post{}
+				err = rows.Scan(&onePost.ID, &onePost.Author, &onePost.Created, &onePost.Forum, &onePost.IsEdited, &onePost.Message, &onePost.Parent, &onePost.Thread)
+				if err != nil {
+					return manyPosts, models.InternalError
+				}
+				manyPosts = append(manyPosts, onePost)
+			}
+		}
+	}
+	return manyPosts, models.Okey
+}
+
+func (r *repoPostgres) GetPostsParent(limit string, since string, desc string, ID int) ([]models.Post, models.StatusCode) {
+	manyPosts := make([]models.Post, 0)
+
+	if since == "" {
+		if desc != "" {
+			rows, err := r.Conn.Query(context.Background(), SelectPostParentSinceDescNotNil, ID, limit)
+			if err != nil {
+				return manyPosts, models.InternalError
+			}
+			defer rows.Close()
+			for rows.Next() {
+				onePost := models.Post{}
+				err = rows.Scan(&onePost.ID, &onePost.Author, &onePost.Created, &onePost.Forum, &onePost.IsEdited, &onePost.Message, &onePost.Parent, &onePost.Thread)
+				if err != nil {
+					return manyPosts, models.InternalError
+				}
+				manyPosts = append(manyPosts, onePost)
+			}
+		} else {
+			rows, err := r.Conn.Query(context.Background(), SelectPostParentSinceDescNil, ID, limit)
+			if err != nil {
+				return manyPosts, models.InternalError
+			}
+			defer rows.Close()
+			for rows.Next() {
+				onePost := models.Post{}
+				err = rows.Scan(&onePost.ID, &onePost.Author, &onePost.Created, &onePost.Forum, &onePost.IsEdited, &onePost.Message, &onePost.Parent, &onePost.Thread)
+				if err != nil {
+					return manyPosts, models.InternalError
+				}
+				manyPosts = append(manyPosts, onePost)
+			}
+		}
+	} else {
+		if desc != "" {
+			rows, err := r.Conn.Query(context.Background(), SelectPostParentDescNotNil, ID, since, limit)
+			if err != nil {
+				return manyPosts, models.InternalError
+			}
+			defer rows.Close()
+			for rows.Next() {
+				onePost := models.Post{}
+				err = rows.Scan(&onePost.ID, &onePost.Author, &onePost.Created, &onePost.Forum, &onePost.IsEdited, &onePost.Message, &onePost.Parent, &onePost.Thread)
+				if err != nil {
+					return manyPosts, models.InternalError
+				}
+				manyPosts = append(manyPosts, onePost)
+			}
+		} else {
+			rows, err := r.Conn.Query(context.Background(), SelectPostParentDescNil, ID, since, limit)
+			if err != nil {
+				return manyPosts, models.InternalError
+			}
+			defer rows.Close()
+			for rows.Next() {
+				onePost := models.Post{}
+				err = rows.Scan(&onePost.ID, &onePost.Author, &onePost.Created, &onePost.Forum, &onePost.IsEdited, &onePost.Message, &onePost.Parent, &onePost.Thread)
+				if err != nil {
+					return manyPosts, models.InternalError
+				}
+				manyPosts = append(manyPosts, onePost)
+			}
+		}
+	}
+	return manyPosts, models.Okey
 }
