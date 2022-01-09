@@ -3,6 +3,7 @@ module forumI
 go 1.17
 
 require (
+	github.com/google/uuid v1.3.0
 	github.com/gorilla/mux v1.8.0
 	github.com/jackc/pgx v3.6.2+incompatible
 	github.com/jackc/pgx/v4 v4.14.1

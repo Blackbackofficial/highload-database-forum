@@ -13,8 +13,8 @@ import (
 
 func main() {
 	muxRoute := mux.NewRouter()
-	//conn := "postgres://postgres:password@127.0.0.1:5432/db?sslmode=disable"
-	conn := "postgres://docker:docker@127.0.0.1:5432/docker?sslmode=disable"
+	conn := "postgres://postgres:password@127.0.0.1:5432/bd?sslmode=disable"
+	//conn := "postgres://docker:docker@127.0.0.1:5432/docker?sslmode=disable"
 	pool, err := pgxpool.Connect(context.Background(), conn)
 	if err != nil {
 		log.Fatal("No connection to postgres", err)
@@ -28,6 +28,11 @@ func main() {
 	{
 		forum.HandleFunc("/forum/create", fHandler.CreateForum).Methods(http.MethodPost)
 		forum.HandleFunc("/forum/{slug}/details", fHandler.ForumInfo).Methods(http.MethodGet)
+		forum.HandleFunc("/forum/{slug}/create", fHandler.CreateThreadsForum).Methods(http.MethodPost)
+		forum.HandleFunc("/forum/{slug}/users", fHandler.GetUsersForum).Methods(http.MethodGet)
+		forum.HandleFunc("/forum/{slug}/threads", fHandler.GetThreadsForum).Methods(http.MethodGet)
+
+		forum.HandleFunc("/api/post/{id}/details", fHandler.GetPostInfo).Methods(http.MethodGet)
 	}
 
 	http.Handle("/", muxRoute)
