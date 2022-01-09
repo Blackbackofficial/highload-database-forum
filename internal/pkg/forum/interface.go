@@ -12,6 +12,8 @@ type UseCase interface {
 	UpdatePostInfo(postUpdate models.PostUpdate) (models.Post, models.StatusCode)
 	GetClear() models.StatusCode
 	GetStatus() models.Status
+	CheckThreadIdOrSlug(slugOrId string) (models.Thread, models.StatusCode)
+	CreatePosts(createPosts []models.Post, thread models.Thread) ([]models.Post, models.StatusCode)
 }
 
 type Repository interface {
@@ -27,4 +29,5 @@ type Repository interface {
 	UpdatePostInfo(post models.Post, postUpdate models.PostUpdate) (models.Post, models.StatusCode)
 	GetClear() models.StatusCode
 	GetStatus() models.Status
+	InPosts(posts []models.Post, thread models.Thread) ([]models.Post, error)
 }

@@ -5,8 +5,11 @@ import (
 	"fmt"
 	"forumI/internal/models"
 	"forumI/internal/pkg/forum"
+	"forumI/internal/pkg/utils"
 	"github.com/jackc/pgx"
 	"github.com/jackc/pgx/v4/pgxpool"
+	"strings"
+	"time"
 )
 
 const (
@@ -30,6 +33,7 @@ const (
 	SelectCountForum               = "select count(*) from forum;"
 	SelectCountThreads             = "select count(*) from threads;"
 	SelectCountPosts               = "select count(*) from posts;"
+	InsertManyPosts                = "insert into posts(author, created, forum, message, parent, thread) values"
 )
 
 type repoPostgres struct {
@@ -174,8 +178,8 @@ func (r *repoPostgres) GetIdThread(id int) (models.Thread, models.StatusCode) {
 	threadS := models.Thread{}
 	row := r.Conn.QueryRow(context.Background(), SelectThreadId, id)
 
-	err := row.Scan(&threadS.ID, &threadS.Title, &threadS.Author, &threadS.Forum, &threadS.Message,
-		&threadS.Votes, &threadS.Slug, &threadS.Created)
+	err := row.Scan(&threadS.ID, &threadS.Title, &threadS.Author, &threadS.Forum,
+		&threadS.Message, &threadS.Votes, &threadS.Slug, &threadS.Created)
 	if err != nil {
 		return models.Thread{}, models.NotFound
 	}
@@ -235,7 +239,7 @@ func (r *repoPostgres) GetClear() models.StatusCode {
 	return models.Okey
 }
 
-func (r repoPostgres) GetStatus() models.Status {
+func (r *repoPostgres) GetStatus() models.Status {
 	statusS := models.Status{}
 	row := r.Conn.QueryRow(context.Background(), SelectCountUsers)
 	err := row.Scan(&statusS.User)
@@ -261,4 +265,42 @@ func (r repoPostgres) GetStatus() models.Status {
 		statusS.Post = 0
 	}
 	return statusS
+}
+
+func (r *repoPostgres) InPosts(postsS []models.Post, thread models.Thread) ([]models.Post, error) {
+	rowQuery := InsertManyPosts
+	data := make([]interface{}, 0)
+	createdTime := time.Now()
+	for i, onePost := range postsS {
+		values := fmt.Sprintf("($%d, $%d, $%d, $%d, $%d, $%d),", i*6+1, i*6+2, i*6+3, i*6+4, i*6+5, i*6+6)
+		rowQuery += values
+		data = append(data, thread.ID)
+		data = append(data, onePost.Parent)
+		data = append(data, onePost.Author)
+		data = append(data, onePost.Message)
+		data = append(data, thread.Forum)
+		data = append(data, createdTime)
+	}
+
+	rowQuery = strings.TrimSuffix(rowQuery, ",")
+	rowQuery += ` RETURNING id, isEdited, forum, thread, created;`
+
+	rows, err := r.Conn.Query(context.Background(), rowQuery, data...)
+	if err != nil {
+		return nil, err
+	}
+
+	for i := range postsS {
+		if rows.Next() {
+			err := rows.Scan(&postsS[i].ID, &postsS[i].IsEdited, &postsS[i].Forum, &postsS[i].Thread, &postsS[i].Created)
+			if err != nil {
+				return nil, utils.Conflict
+			}
+		}
+	}
+	if rows.Err() != nil {
+		return nil, rows.Err()
+	}
+	defer rows.Close()
+	return postsS, nil
 }

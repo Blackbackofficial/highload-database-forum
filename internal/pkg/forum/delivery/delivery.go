@@ -1,6 +1,7 @@
 package delivery
 
 import (
+	"encoding/json"
 	"forumI/internal/models"
 	"forumI/internal/pkg/forum"
 	"forumI/internal/pkg/utils"
@@ -20,7 +21,7 @@ func NewForumHandler(ForumUseCase forum.UseCase) *Handler {
 }
 
 // CreateForum /forum/create
-func (h Handler) CreateForum(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) CreateForum(w http.ResponseWriter, r *http.Request) {
 	forumS := models.Forum{}
 	err := easyjson.UnmarshalFromReader(r.Body, &forumS)
 	if err != nil {
@@ -33,7 +34,7 @@ func (h Handler) CreateForum(w http.ResponseWriter, r *http.Request) {
 }
 
 // ForumInfo /forum/{slug}/details
-func (h Handler) ForumInfo(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) ForumInfo(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	slug, found := vars["slug"]
 	if !found {
@@ -46,7 +47,7 @@ func (h Handler) ForumInfo(w http.ResponseWriter, r *http.Request) {
 }
 
 // CreateThreadsForum /forum/{slug}/create
-func (h Handler) CreateThreadsForum(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) CreateThreadsForum(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	slug, found := vars["slug"]
 	if !found {
@@ -67,7 +68,7 @@ func (h Handler) CreateThreadsForum(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetUsersForum /forum/{slug}/users
-func (h Handler) GetUsersForum(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) GetUsersForum(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	slug, found := vars["slug"]
 	if !found {
@@ -96,7 +97,7 @@ func (h Handler) GetUsersForum(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetThreadsForum /forum/{slug}/threads
-func (h Handler) GetThreadsForum(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) GetThreadsForum(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	slug, found := vars["slug"]
 	if !found {
@@ -124,7 +125,7 @@ func (h Handler) GetThreadsForum(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetPostInfo /post/{id}/details
-func (h Handler) GetPostInfo(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) GetPostInfo(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	idV, found := vars["id"]
 	if !found {
@@ -153,7 +154,7 @@ func (h Handler) GetPostInfo(w http.ResponseWriter, r *http.Request) {
 }
 
 // UpdatePostInfo /post/{id}/details
-func (h Handler) UpdatePostInfo(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) UpdatePostInfo(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	ids, found := vars["id"]
 	if !found {
@@ -178,13 +179,45 @@ func (h Handler) UpdatePostInfo(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetClear /service/clear
-func (h Handler) GetClear(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) GetClear(w http.ResponseWriter, _ *http.Request) {
 	status := h.uc.GetClear()
 	utils.Response(w, status, nil)
 }
 
 // GetStatus /service/status
-func (h Handler) GetStatus(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) GetStatus(w http.ResponseWriter, _ *http.Request) {
 	statusS := h.uc.GetStatus()
 	utils.Response(w, models.Okey, statusS)
+}
+
+// CreatePosts /thread/{slug_or_id}/create
+func (h *Handler) CreatePosts(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	slugOrId, found := vars["slug_or_id"]
+	if !found {
+		utils.Response(w, models.NotFound, nil)
+		return
+	}
+
+	var posts []models.Post
+	thread, status := h.uc.CheckThreadIdOrSlug(slugOrId)
+	if status != models.Okey {
+		utils.Response(w, status, nil)
+		return
+	}
+
+	decoder := json.NewDecoder(r.Body)
+	err := decoder.Decode(&posts)
+	if err != nil {
+		utils.Response(w, models.InternalError, nil)
+		return
+	}
+
+	if len(posts) == 0 {
+		utils.Response(w, models.Created, []byte("[]"))
+		return
+	}
+
+	createPosts, status := h.uc.CreatePosts(posts, thread)
+	utils.Response(w, status, createPosts)
 }

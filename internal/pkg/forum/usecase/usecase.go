@@ -5,6 +5,7 @@ import (
 	"forumI/internal/pkg/forum"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx"
+	"strconv"
 )
 
 type UseCase struct {
@@ -114,4 +115,34 @@ func (u *UseCase) GetClear() models.StatusCode {
 
 func (u *UseCase) GetStatus() models.Status {
 	return u.repo.GetStatus()
+}
+
+func (u *UseCase) CheckThreadIdOrSlug(slugOrId string) (models.Thread, models.StatusCode) {
+	isInt, err := strconv.Atoi(slugOrId)
+	if err != nil {
+		threadS, status := u.repo.GetThreadSlug(slugOrId)
+		if status != models.Okey {
+			return models.Thread{}, status
+		}
+		return threadS, models.Okey
+	} else {
+		threadS, status := u.repo.GetIdThread(isInt)
+		if status != models.Okey {
+			return models.Thread{}, status
+		}
+		return threadS, models.Okey
+	}
+}
+
+func (u UseCase) CreatePosts(inPosts []models.Post, thread models.Thread) ([]models.Post, models.StatusCode) {
+	posts := make([]models.Post, 0)
+	posts, err := u.repo.InPosts(inPosts, thread)
+	if err != nil {
+		if pgError, ok := err.(pgx.PgError); ok && pgError.Code == "23503" {
+			return nil, models.NotFound
+		} else {
+			return nil, models.Conflict
+		}
+	}
+	return posts, models.Created
 }
