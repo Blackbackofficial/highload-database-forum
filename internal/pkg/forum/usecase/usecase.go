@@ -187,3 +187,11 @@ func (u *UseCase) Voted(vote models.Vote, thread models.Thread) (models.Thread, 
 	}
 	return thread, models.Okey
 }
+
+func (u *UseCase) CreateUsers(user models.User) (models.User, models.StatusCode) {
+	return u.repo.CreateUsers(user)
+}
+
+func (u *UseCase) GetUser(user models.User) (models.User, models.StatusCode) {
+	return u.repo.GetUser(user.NickName)
+}

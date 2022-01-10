@@ -17,6 +17,8 @@ type UseCase interface {
 	UpdateThreadInfo(slugOrId string, upThread models.Thread) (models.Thread, models.StatusCode)
 	GetPostOfThread(limit string, since string, desc string, sort string, ID int) ([]models.Post, models.StatusCode)
 	Voted(vote models.Vote, thread models.Thread) (models.Thread, models.StatusCode)
+	CreateUsers(user models.User) (models.User, models.StatusCode)
+	GetUser(user models.User) (models.User, models.StatusCode)
 }
 
 type Repository interface {
@@ -39,4 +41,5 @@ type Repository interface {
 	GetPostsParent(limit string, since string, desc string, ID int) ([]models.Post, models.StatusCode)
 	InVoted(vote models.Vote) error
 	UpVote(vote models.Vote) (models.Vote, error)
+	CreateUsers(user models.User) (models.User, models.StatusCode)
 }

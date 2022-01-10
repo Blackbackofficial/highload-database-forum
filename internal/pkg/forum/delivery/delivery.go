@@ -295,6 +295,7 @@ func (h *Handler) GetPostOfThread(w http.ResponseWriter, r *http.Request) {
 	utils.Response(w, status, finalPosts)
 }
 
+// Voted /thread/{slug_or_id}/vote
 func (h Handler) Voted(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	slugOrId, found := vars["slug_or_id"]
@@ -328,4 +329,45 @@ func (h Handler) Voted(w http.ResponseWriter, r *http.Request) {
 
 	finalThread, statusT := h.uc.CheckThreadIdOrSlug(slugOrId)
 	utils.Response(w, statusT, finalThread)
+}
+
+// CreateUsers /user/{nickname}/create
+func (h *Handler) CreateUsers(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	nickname, found := vars["nickname"]
+	if !found {
+		utils.Response(w, models.NotFound, nil)
+		return
+	}
+
+	userS := models.User{}
+	err := easyjson.UnmarshalFromReader(r.Body, &userS)
+	if err != nil {
+		utils.Response(w, models.InternalError, nil)
+		return
+	}
+	userS.NickName = nickname
+
+	_, status := h.uc.GetUser(userS)
+	if status == models.Okey {
+		utils.Response(w, models.Conflict, nil)
+		return
+	}
+	finalUser, status := h.uc.CreateUsers(userS)
+	utils.Response(w, status, finalUser)
+}
+
+func (h *Handler) GetUser(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	nickname, found := vars["nickname"]
+	if !found {
+		utils.Response(w, models.NotFound, nil)
+		return
+	}
+
+	userS := models.User{}
+	userS.NickName = nickname
+
+	finalUser, status := h.uc.GetUser(userS)
+	utils.Response(w, status, finalUser)
 }

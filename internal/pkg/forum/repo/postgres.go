@@ -577,3 +577,12 @@ func (r *repoPostgres) UpVote(vote models.Vote) (models.Vote, error) {
 	}
 	return vote, nil
 }
+
+func (r *repoPostgres) CreateUsers(user models.User) (models.User, models.StatusCode) {
+	_, err := r.Conn.Exec(context.Background(), `Insert INTO users(Nickname, FullName, About, Email) VALUES ($1, $2, $3, $4);`,
+		user.NickName, user.FullName, user.About, user.Email)
+	if err != nil {
+		return models.User{}, models.InternalError
+	}
+	return user, models.Created
+}
