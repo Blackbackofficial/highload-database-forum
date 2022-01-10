@@ -19,6 +19,7 @@ type UseCase interface {
 	Voted(vote models.Vote, thread models.Thread) (models.Thread, models.StatusCode)
 	CreateUsers(user models.User) (models.User, models.StatusCode)
 	GetUser(user models.User) (models.User, models.StatusCode)
+	ChangeInfoUser(user models.User) (models.User, models.StatusCode)
 }
 
 type Repository interface {
@@ -42,4 +43,5 @@ type Repository interface {
 	InVoted(vote models.Vote) error
 	UpVote(vote models.Vote) (models.Vote, error)
 	CreateUsers(user models.User) (models.User, models.StatusCode)
+	ChangeInfoUser(user models.User) (models.User, error)
 }

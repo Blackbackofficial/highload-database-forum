@@ -48,6 +48,7 @@ const (
 	SelectPostParentDescNil         = "select id, author, created, forum, isedited, message, parent, thread from posts where path[1] IN (select id from posts where thread = $1 and parent is null and path[1] > (select path[1] from posts where id = $2) order by id asc limit $3) order by path, id;"
 	UpdateVote                      = "update votes set voice=$1 where author=$2 and thread=$3;"
 	InsertVote                      = "insert into votes(author, voice, thread) values ($1, $2, $3);"
+	UpdateUser                      = "update users set fullname=coalesce(nullif($1, ''), fullname), about=coalesce(nullif($2, ''), about), email=coalesce(nullif($3, ''), email) where nickname=$4 returning *"
 )
 
 type repoPostgres struct {
@@ -585,4 +586,14 @@ func (r *repoPostgres) CreateUsers(user models.User) (models.User, models.Status
 		return models.User{}, models.InternalError
 	}
 	return user, models.Created
+}
+
+func (r *repoPostgres) ChangeInfoUser(user models.User) (models.User, error) {
+	upUser := models.User{}
+	row := r.Conn.QueryRow(context.Background(), UpdateUser, user.FullName, user.About, user.Email, user.NickName)
+	err := row.Scan(&upUser.NickName, &upUser.FullName, &upUser.About, &upUser.Email)
+	if err != nil {
+		return models.User{}, err
+	}
+	return upUser, nil
 }

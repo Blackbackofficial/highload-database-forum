@@ -195,3 +195,14 @@ func (u *UseCase) CreateUsers(user models.User) (models.User, models.StatusCode)
 func (u *UseCase) GetUser(user models.User) (models.User, models.StatusCode) {
 	return u.repo.GetUser(user.NickName)
 }
+
+func (u *UseCase) ChangeInfoUser(user models.User) (models.User, models.StatusCode) {
+	userS, err := u.repo.ChangeInfoUser(user)
+	if err != nil {
+		if pgError, ok := err.(pgx.PgError); ok && pgError.Code == "23505" {
+			return models.User{}, models.Conflict
+		}
+		return models.User{}, models.NotFound
+	}
+	return userS, models.Okey
+}

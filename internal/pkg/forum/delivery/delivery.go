@@ -373,5 +373,21 @@ func (h *Handler) GetUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) ChangeInfoUser(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	nickname, found := vars["nickname"]
+	if !found {
+		utils.Response(w, models.NotFound, nil)
+		return
+	}
 
+	userS := models.User{}
+	err := easyjson.UnmarshalFromReader(r.Body, &userS)
+	if err != nil {
+		utils.Response(w, models.InternalError, nil)
+		return
+	}
+	userS.NickName = nickname
+
+	finalUser, status := h.uc.ChangeInfoUser(userS)
+	utils.Response(w, status, finalUser)
 }
