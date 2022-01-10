@@ -13,8 +13,8 @@ import (
 
 func main() {
 	muxRoute := mux.NewRouter()
-	conn := "postgres://postgres:password@127.0.0.1:5432/bd?sslmode=disable"
-	//conn := "postgres://docker:docker@127.0.0.1:5432/docker?sslmode=disable"
+	conn := "postgres://postgres:password@127.0.0.1:5432/bd?sslmode=disable&pool_max_conns=1000"
+	//conn := "postgres://docker:docker@127.0.0.1:5432/docker?sslmode=disable&pool_max_conns=1000"
 	pool, err := pgxpool.Connect(context.Background(), conn)
 	if err != nil {
 		log.Fatal("No connection to postgres", err)
