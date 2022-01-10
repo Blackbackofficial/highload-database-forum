@@ -45,7 +45,8 @@ func main() {
 		forum.HandleFunc("/thread/{slug_or_id}/vote", fHandler.Voted).Methods(http.MethodPost)
 
 		forum.HandleFunc("/user/{nickname}/create", fHandler.CreateUsers).Methods(http.MethodPost)
-		forum.HandleFunc("/user/{nickname}/profile", fHandler.GetUser).Methods(http.MethodPost)
+		forum.HandleFunc("/user/{nickname}/profile", fHandler.GetUser).Methods(http.MethodGet)
+		forum.HandleFunc("/user/{nickname}/profile", fHandler.ChangeInfoUser).Methods(http.MethodPost)
 	}
 
 	http.Handle("/", muxRoute)

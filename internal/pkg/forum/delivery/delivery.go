@@ -348,9 +348,9 @@ func (h *Handler) CreateUsers(w http.ResponseWriter, r *http.Request) {
 	}
 	userS.NickName = nickname
 
-	_, status := h.uc.GetUser(userS)
+	userC, status := h.uc.GetUser(userS)
 	if status == models.Okey {
-		utils.Response(w, models.Conflict, nil)
+		utils.Response(w, models.Conflict, userC)
 		return
 	}
 	finalUser, status := h.uc.CreateUsers(userS)
@@ -370,4 +370,8 @@ func (h *Handler) GetUser(w http.ResponseWriter, r *http.Request) {
 
 	finalUser, status := h.uc.GetUser(userS)
 	utils.Response(w, status, finalUser)
+}
+
+func (h *Handler) ChangeInfoUser(w http.ResponseWriter, r *http.Request) {
+
 }
