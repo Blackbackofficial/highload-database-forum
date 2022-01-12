@@ -110,6 +110,9 @@ func (h *Handler) GetUsersForum(w http.ResponseWriter, r *http.Request) {
 	if descs := query["desc"]; len(descs) > 0 {
 		desc = descs[0]
 	}
+	if limit == "" {
+		limit = "100"
+	}
 
 	forumS := models.Forum{Slug: slug}
 
@@ -163,11 +166,6 @@ func (h *Handler) GetPostInfo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	postFull := models.PostFull{}
-	err := easyjson.UnmarshalFromReader(r.Body, &postFull)
-	if err != nil {
-		utils.Response(w, models.InternalError, nil)
-		return
-	}
 
 	postFull.Post.ID = id
 	finalPostF, status := h.uc.GetFullPostInfo(postFull, related)
@@ -338,7 +336,7 @@ func (h Handler) Voted(w http.ResponseWriter, r *http.Request) {
 
 	_, statusV := h.uc.Voted(voteS, thread)
 	if statusV != models.Okey {
-		utils.Response(w, models.InternalError, nil)
+		utils.Response(w, statusV, nil)
 		return
 	}
 

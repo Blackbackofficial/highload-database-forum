@@ -45,4 +45,5 @@ type Repository interface {
 	CreateUsers(user models.User) (models.User, models.StatusCode)
 	ChangeInfoUser(user models.User) (models.User, error)
 	CheckUserEmailUniq(user []models.User) ([]models.User, models.StatusCode)
+	ForumCheck(forum models.Forum) (models.Forum, models.StatusCode)
 }

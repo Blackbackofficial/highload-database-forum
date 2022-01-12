@@ -11,7 +11,7 @@ CREATE UNLOGGED TABLE users
 CREATE UNLOGGED TABLE forum
 (
     Title    TEXT   NOT NULL,
-    "user"   CITEXT REFERENCES "users"(Nickname),
+    "user"   CITEXT,
     Slug     CITEXT PRIMARY KEY,
     Posts    INT    DEFAULT 0,
     Threads  INT    DEFAULT 0

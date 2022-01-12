@@ -14,7 +14,7 @@ import (
 const (
 	SelectUserByNickname            = "select nickname, fullname, about, email from users where nickname=$1 limit 1;"
 	SelectUserByEmailOrNickname     = "select nickname, fullname, about, email from users where nickname=$1 or email=$2 limit 2;"
-	SelectForumBySlug               = "select slug, \"user\", title, posts, threads from forum where slug=$1 limit 1;"
+	SelectForumBySlug               = "select title, \"user\", slug, posts, threads from forum where slug=$1 limit 1;"
 	InsertInForum                   = "insert into forum(slug, \"user\", title) values ($1, $2, $3);"
 	InsertInThread                  = "insert into threads(title, author, created, forum, message, slug) values ($1, $2, $3, $4, $5, $6) returning *"
 	SelectThreadSlug                = "select id, title, author, forum, message, votes, slug, created from threads where slug=$1 limit 1;"
@@ -25,7 +25,7 @@ const (
 	GetThreadsSinceDescNil          = "select id, title, author, forum, message, votes, slug, created from threads where forum=$1 and created >= $2 order by created asc limit $3;"
 	GetThreadsDescNotNil            = "select id, title, author, forum, message, votes, slug, created from threads where forum=$1 order by created desc limit $2;"
 	GetThreadsDescNil               = "select id, title, author, forum, message, votes, slug, created from threads where forum=$1 order by created asc limit $2;"
-	SelectPostById                  = "select author, post, created, forum, isedited, parent, threads from posts where id = $1;"
+	SelectPostById                  = "select author, message, created, forum, isedited, parent, thread from posts where id = $1;"
 	SelectThreadId                  = "select id, title, author, forum, message, votes, slug, created from threads where id=$1 LIMIT 1;"
 	UpdatePostMessage               = "update posts set message=coalesce(nullif($1, ''), message), isedited = case when $1 = '' or message = $1 then isedited else true end where id=$2 returning *"
 	ClearAll                        = "truncate table users, forum, threads, posts, votes, users_forum CASCADE;"
@@ -70,6 +70,21 @@ func (r *repoPostgres) GetUser(name string) (models.User, models.StatusCode) {
 	return userM, models.Okey
 }
 
+func (r *repoPostgres) ForumCheck(forum models.Forum) (models.Forum, models.StatusCode) {
+	query := `SELECT slug FROM forums 
+				WHERE slug = $1;`
+
+	row := r.Conn.QueryRow(context.Background(), query, forum.Slug)
+
+	err := row.Scan(&forum.Slug)
+
+	if err != nil {
+		return forum, models.NotFound
+	}
+
+	return forum, models.Okey
+}
+
 func (r *repoPostgres) InForum(forum models.Forum) error {
 	_, err := r.Conn.Exec(context.Background(), InsertInForum, forum.Slug, forum.User, forum.Title)
 	if err != nil {
@@ -81,7 +96,7 @@ func (r *repoPostgres) InForum(forum models.Forum) error {
 func (r *repoPostgres) GetForum(slug string) (models.Forum, models.StatusCode) {
 	forumM := models.Forum{}
 	row := r.Conn.QueryRow(context.Background(), SelectForumBySlug, slug)
-	err := row.Scan(&forumM.Slug, &forumM.User, &forumM.Title, &forumM.Posts, &forumM.Threads)
+	err := row.Scan(&forumM.Title, &forumM.User, &forumM.Slug, &forumM.Posts, &forumM.Threads)
 	if err != nil {
 		return models.Forum{}, models.NotFound
 	}
@@ -122,6 +137,11 @@ func (r *repoPostgres) GetUsersOfForum(forum models.Forum, limit string, since s
 		}
 	} else {
 		query = fmt.Sprintf(GetUsersOfForumDescNil, since)
+		if since == "" {
+			query = fmt.Sprintf(GetUsersOfForumDescNil, 0)
+		} else {
+			query = fmt.Sprintf(GetUsersOfForumDescNil, since)
+		}
 	}
 	users := make([]models.User, 0)
 	row, err := r.Conn.Query(context.Background(), query, forum.Slug, limit)
@@ -130,7 +150,11 @@ func (r *repoPostgres) GetUsersOfForum(forum models.Forum, limit string, since s
 		return users, models.NotFound
 	}
 
-	defer row.Close() //??
+	defer func() {
+		if row != nil {
+			row.Close()
+		}
+	}()
 
 	for row.Next() {
 		user := models.User{}
@@ -139,6 +163,9 @@ func (r *repoPostgres) GetUsersOfForum(forum models.Forum, limit string, since s
 			return users, models.InternalError
 		}
 		users = append(users, user)
+	}
+	if len(users) == 0 {
+
 	}
 
 	return users, models.Okey
