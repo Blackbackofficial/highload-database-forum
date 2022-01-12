@@ -251,12 +251,6 @@ func (h *Handler) GetThreadInfo(w http.ResponseWriter, r *http.Request) {
 		utils.Response(w, models.NotFound, nil)
 		return
 	}
-	threadS := models.Thread{}
-	err := easyjson.UnmarshalFromReader(r.Body, &threadS)
-	if err != nil {
-		utils.Response(w, models.InternalError, nil)
-		return
-	}
 	finalThread, status := h.uc.CheckThreadIdOrSlug(slugOrId)
 	utils.Response(w, status, finalThread)
 }

@@ -39,7 +39,7 @@ CREATE UNLOGGED TABLE posts
     Message   TEXT        NOT NULL,
     Parent    INT         DEFAULT 0,
     Thread    INT,
-    Path      INT[]       DEFAULT ARRAY []::INTEGER[],
+    Path      INTEGER[],
     FOREIGN KEY (thread) REFERENCES "threads" (id),
     FOREIGN KEY (author) REFERENCES "users"  (nickname)
 );
@@ -191,6 +191,7 @@ BEGIN
         SELECT path FROM posts WHERE id = new.parent INTO parent_path;
         NEW.path := parent_path || new.id;
     END IF;
+    UPDATE forum SET Posts=Posts + 1 WHERE forum.slug = new.forum;
     RETURN new;
 END
 $update_path$ LANGUAGE plpgsql;

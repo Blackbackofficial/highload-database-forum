@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"forumI/internal/models"
 	"forumI/internal/pkg/forum"
+	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"strings"
 	"time"
@@ -24,7 +25,7 @@ const (
 	GetThreadsSinceDescNil          = "select id, title, author, forum, message, votes, slug, created from threads where forum=$1 and created >= $2 order by created asc limit $3;"
 	GetThreadsDescNotNil            = "select id, title, author, forum, message, votes, slug, created from threads where forum=$1 order by created desc limit $2;"
 	GetThreadsDescNil               = "select id, title, author, forum, message, votes, slug, created from threads where forum=$1 order by created asc limit $2;"
-	SelectPostById                  = "select author, post, created_at, forum, isedited, parent, threads from posts where id = $1;"
+	SelectPostById                  = "select author, post, created, forum, isedited, parent, threads from posts where id = $1;"
 	SelectThreadId                  = "select id, title, author, forum, message, votes, slug, created from threads where id=$1 LIMIT 1;"
 	UpdatePostMessage               = "update posts set message=coalesce(nullif($1, ''), message), isedited = case when $1 = '' or message = $1 then isedited else true end where id=$2 returning *"
 	ClearAll                        = "truncate table users, forum, threads, posts, votes, users_forum CASCADE;"
@@ -348,16 +349,16 @@ func (r *repoPostgres) UpdateThreadInfo(upThread models.Thread) (models.Thread, 
 	if upThread.Slug == "" {
 		rowQuery := fmt.Sprintf(UpdateThread, `id=$3`)
 		row := r.Conn.QueryRow(context.Background(), rowQuery, upThread.Title, upThread.Message, upThread.ID)
-		err := row.Scan(&threadS.ID, &threadS.Title, &threadS.Author, &threadS.Created,
-			&threadS.Forum, &threadS.Message, &threadS.Slug, &threadS.Votes)
+		err := row.Scan(&threadS.ID, &threadS.Title, &threadS.Author,
+			&threadS.Forum, &threadS.Message, &threadS.Votes, &threadS.Slug, &threadS.Created)
 		if err != nil {
 			return models.Thread{}, models.NotFound
 		}
 	} else {
 		rowQuery := fmt.Sprintf(UpdateThread, `slug=$3`)
 		row := r.Conn.QueryRow(context.Background(), rowQuery, upThread.Title, upThread.Message, upThread.Slug)
-		err := row.Scan(&threadS.ID, &threadS.Title, &threadS.Author, &threadS.Created,
-			&threadS.Forum, &threadS.Message, &threadS.Slug, &threadS.Votes)
+		err := row.Scan(&threadS.ID, &threadS.Title, &threadS.Author,
+			&threadS.Forum, &threadS.Message, &threadS.Votes, &threadS.Slug, &threadS.Created)
 		if err != nil {
 			return models.Thread{}, models.NotFound
 		}
@@ -367,7 +368,7 @@ func (r *repoPostgres) UpdateThreadInfo(upThread models.Thread) (models.Thread, 
 
 func (r *repoPostgres) GetPostsFlat(limit string, since string, desc string, ID int) ([]models.Post, models.StatusCode) {
 	manyPosts := make([]models.Post, 0)
-	if since != "" {
+	if since == "" {
 		if desc == "true" {
 			rows, err := r.Conn.Query(context.Background(), SelectPostSinceDescNotNil, ID, limit)
 			if err != nil {
@@ -430,138 +431,132 @@ func (r *repoPostgres) GetPostsFlat(limit string, since string, desc string, ID 
 	}
 	return manyPosts, models.Okey
 }
+func (r *repoPostgres) getTree(id int, since, limit, desc string) pgx.Rows {
+
+	var rows pgx.Rows
+
+	query := ``
+
+	if limit == "" && since == "" {
+		if desc == "true" {
+			query = `SELECT id, author, created, forum, isedited, message, parent, thread
+				FROM posts
+				WHERE thread = $1 ORDER BY path, id DESC`
+		} else {
+			query = ` SELECT id, author, created, forum, isedited, message, parent, thread
+				FROM posts
+				WHERE thread = $1 ORDER BY path, id ASC`
+		}
+		rows, _ = r.Conn.Query(context.Background(), query, id)
+	} else {
+		if limit != "" && since == "" {
+			if desc == "true" {
+				query += `SELECT id, author, created, forum, isedited, message, parent, thread
+				FROM posts
+				WHERE thread = $1 ORDER BY path DESC, id DESC LIMIT $2`
+			} else {
+				query += `SELECT id, author, created, forum, isedited, message, parent, thread
+				FROM posts
+				WHERE thread = $1 ORDER BY path, id ASC LIMIT $2`
+			}
+			rows, _ = r.Conn.Query(context.Background(), query, id, limit)
+		}
+
+		if limit != "" && since != "" {
+			if desc == "true" {
+				query = `SELECT posts.id, posts.author,
+				posts.created, posts.forum, posts.isedited, posts.message, posts.parent, posts.thread
+				FROM posts JOIN posts parent ON parent.id = $2 WHERE posts.path < parent.path AND  posts.thread = $1
+				ORDER BY posts.path DESC, posts.id DESC LIMIT $3`
+			} else {
+				query = `SELECT posts.id, posts.author,
+				posts.created, posts.forum, posts.isedited, posts.message, posts.parent, posts.thread
+				FROM posts JOIN posts parent ON parent.id = $2 WHERE posts.path > parent.path AND  posts.thread = $1
+				ORDER BY posts.path ASC, posts.id ASC LIMIT $3`
+			}
+			rows, _ = r.Conn.Query(context.Background(), query, id, since, limit)
+		}
+
+		if limit == "" && since != "" {
+			if desc == "true" {
+				query = `SELECT posts.id, posts.author, 
+				posts.created, posts.forum, posts.isedited, posts.message, posts.parent, posts.thread
+				FROM posts JOIN posts parent ON parent.id = $2 WHERE posts.path < parent.path AND  posts.thread = $1
+				ORDER BY posts.path DESC, posts.id DESC`
+			} else {
+				query = `SELECT posts.id, posts.author, 
+				posts.created, posts.forum, posts.isedited, posts.message, posts.parent, posts.thread
+				FROM posts JOIN posts parent ON parent.id = $2 WHERE posts.path > parent.path AND  posts.thread = $1
+				ORDER BY posts.path ASC, posts.id ASC`
+			}
+			rows, _ = r.Conn.Query(context.Background(), query, id, since)
+		}
+	}
+
+	return rows
+}
 
 func (r *repoPostgres) GetPostsTree(limit string, since string, desc string, ID int) ([]models.Post, models.StatusCode) {
 	manyPosts := make([]models.Post, 0)
-	if since == "" {
-		if desc == "true" {
-			rows, err := r.Conn.Query(context.Background(), SelectPostTreeSinceDescNotNil, ID, limit)
-			if err != nil {
-				return manyPosts, models.InternalError
-			}
-			defer rows.Close()
-			for rows.Next() {
-				onePost := models.Post{}
-				err = rows.Scan(&onePost.ID, &onePost.Author, &onePost.Created, &onePost.Forum, &onePost.IsEdited, &onePost.Message, &onePost.Parent, &onePost.Thread)
-				if err != nil {
-					return manyPosts, models.InternalError
-				}
-				manyPosts = append(manyPosts, onePost)
-			}
-		} else {
-			rows, err := r.Conn.Query(context.Background(), SelectPostTreeSinceDescNil, ID, limit)
-			if err != nil {
-				return manyPosts, models.InternalError
-			}
-			defer rows.Close()
-			for rows.Next() {
-				onePost := models.Post{}
-				err = rows.Scan(&onePost.ID, &onePost.Author, &onePost.Created, &onePost.Forum, &onePost.IsEdited, &onePost.Message, &onePost.Parent, &onePost.Thread)
-				if err != nil {
-					return manyPosts, models.InternalError
-				}
-				manyPosts = append(manyPosts, onePost)
-			}
+
+	rows := r.getTree(ID, since, limit, desc)
+
+	for rows.Next() {
+		onePost := models.Post{}
+		err := rows.Scan(&onePost.ID, &onePost.Author, &onePost.Created, &onePost.Forum, &onePost.IsEdited, &onePost.Message, &onePost.Parent, &onePost.Thread)
+		if err != nil {
+			return manyPosts, models.InternalError
 		}
-	} else {
-		if desc == "" {
-			rows, err := r.Conn.Query(context.Background(), SelectPostTreeDescNotNil, ID, since, limit)
-			if err != nil {
-				return manyPosts, models.InternalError
-			}
-			defer rows.Close()
-			for rows.Next() {
-				onePost := models.Post{}
-				err = rows.Scan(&onePost.ID, &onePost.Author, &onePost.Created, &onePost.Forum, &onePost.IsEdited, &onePost.Message, &onePost.Parent, &onePost.Thread)
-				if err != nil {
-					return manyPosts, models.InternalError
-				}
-				manyPosts = append(manyPosts, onePost)
-			}
-		} else {
-			rows, err := r.Conn.Query(context.Background(), SelectPostTreeDescNil, ID, since, limit)
-			if err != nil {
-				return manyPosts, models.InternalError
-			}
-			defer rows.Close()
-			for rows.Next() {
-				onePost := models.Post{}
-				err = rows.Scan(&onePost.ID, &onePost.Author, &onePost.Created, &onePost.Forum, &onePost.IsEdited, &onePost.Message, &onePost.Parent, &onePost.Thread)
-				if err != nil {
-					return manyPosts, models.InternalError
-				}
-				manyPosts = append(manyPosts, onePost)
-			}
-		}
+		manyPosts = append(manyPosts, onePost)
 	}
 	return manyPosts, models.Okey
 }
 
 func (r *repoPostgres) GetPostsParent(limit string, since string, desc string, ID int) ([]models.Post, models.StatusCode) {
-	manyPosts := make([]models.Post, 0)
+	posts := make([]models.Post, 0)
+	var rows pgx.Rows
 
-	if since == "" {
+	parents := fmt.Sprintf(`SELECT id FROM posts WHERE thread = %d AND parent = 0 `, ID)
+
+	if since != "" {
 		if desc == "true" {
-			rows, err := r.Conn.Query(context.Background(), SelectPostParentSinceDescNotNil, ID, limit)
-			if err != nil {
-				return manyPosts, models.InternalError
-			}
-			defer rows.Close()
-			for rows.Next() {
-				onePost := models.Post{}
-				err = rows.Scan(&onePost.ID, &onePost.Author, &onePost.Created, &onePost.Forum, &onePost.IsEdited, &onePost.Message, &onePost.Parent, &onePost.Thread)
-				if err != nil {
-					return manyPosts, models.InternalError
-				}
-				manyPosts = append(manyPosts, onePost)
-			}
+			parents += ` AND path[1] < ` + fmt.Sprintf(`(SELECT path[1] FROM posts WHERE id = %s) `, since)
 		} else {
-			rows, err := r.Conn.Query(context.Background(), SelectPostParentSinceDescNil, ID, limit)
-			if err != nil {
-				return manyPosts, models.InternalError
-			}
-			defer rows.Close()
-			for rows.Next() {
-				onePost := models.Post{}
-				err = rows.Scan(&onePost.ID, &onePost.Author, &onePost.Created, &onePost.Forum, &onePost.IsEdited, &onePost.Message, &onePost.Parent, &onePost.Thread)
-				if err != nil {
-					return manyPosts, models.InternalError
-				}
-				manyPosts = append(manyPosts, onePost)
-			}
-		}
-	} else {
-		if desc == "true" {
-			rows, err := r.Conn.Query(context.Background(), SelectPostParentDescNotNil, ID, since, limit)
-			if err != nil {
-				return manyPosts, models.InternalError
-			}
-			defer rows.Close()
-			for rows.Next() {
-				onePost := models.Post{}
-				err = rows.Scan(&onePost.ID, &onePost.Author, &onePost.Created, &onePost.Forum, &onePost.IsEdited, &onePost.Message, &onePost.Parent, &onePost.Thread)
-				if err != nil {
-					return manyPosts, models.InternalError
-				}
-				manyPosts = append(manyPosts, onePost)
-			}
-		} else {
-			rows, err := r.Conn.Query(context.Background(), SelectPostParentDescNil, ID, since, limit)
-			if err != nil {
-				return manyPosts, models.InternalError
-			}
-			defer rows.Close()
-			for rows.Next() {
-				onePost := models.Post{}
-				err = rows.Scan(&onePost.ID, &onePost.Author, &onePost.Created, &onePost.Forum, &onePost.IsEdited, &onePost.Message, &onePost.Parent, &onePost.Thread)
-				if err != nil {
-					return manyPosts, models.InternalError
-				}
-				manyPosts = append(manyPosts, onePost)
-			}
+			parents += ` AND path[1] > ` + fmt.Sprintf(`(SELECT path[1] FROM posts WHERE id = %s) `, since)
 		}
 	}
-	return manyPosts, models.Okey
+
+	if desc == "true" {
+		parents += ` ORDER BY id DESC `
+	} else {
+		parents += ` ORDER BY id ASC `
+	}
+
+	if limit != "" {
+		parents += " LIMIT " + limit
+	}
+
+	query := fmt.Sprintf(`SELECT id, author, created, forum, isedited, message, parent, thread FROM posts WHERE path[1] = ANY (%s) `, parents)
+
+	if desc == "true" {
+		query += ` ORDER BY path[1] DESC, path,  id `
+	} else {
+		query += ` ORDER BY path[1] ASC, path,  id `
+	}
+
+	rows, _ = r.Conn.Query(context.Background(), query)
+
+	for rows.Next() {
+		var post models.Post
+		err := rows.Scan(&post.ID, &post.Author, &post.Created, &post.Forum, &post.IsEdited, &post.Message,
+			&post.Parent, &post.Thread)
+		if err != nil {
+			return posts, models.InternalError
+		}
+		posts = append(posts, post)
+	}
+
+	return posts, models.Okey
 }
 
 func (r *repoPostgres) InVoted(vote models.Vote) error {
