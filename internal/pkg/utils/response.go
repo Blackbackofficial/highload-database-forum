@@ -37,11 +37,7 @@ func Response(w http.ResponseWriter, status models.StatusCode, body interface{})
 	case models.Conflict:
 		w.WriteHeader(http.StatusConflict)
 		if body != nil {
-			jsn, err := json.Marshal(body)
-			if err != nil {
-				return
-			}
-			_, _ = w.Write(jsn)
+			break
 		} else {
 			w.Write(JsonError(Conflict.Error()))
 		}

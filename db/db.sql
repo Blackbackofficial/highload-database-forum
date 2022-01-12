@@ -32,32 +32,40 @@ CREATE UNLOGGED TABLE threads
 CREATE UNLOGGED TABLE posts
 (
     Id        SERIAL      PRIMARY KEY,
-    Parent    INT         DEFAULT 0,
-    Author    CITEXT      REFERENCES "users"(Nickname),
-    Message   TEXT        NOT NULL,
-    IsEdited  BOOLEAN     DEFAULT FALSE,
-    Forum     CITEXT      DEFAULT '',
-    Thread    INT         DEFAULT 0 REFERENCES "threads"(Id),
+    Author    CITEXT,
     Created   TIMESTAMP   WITH TIME ZONE DEFAULT now(),
-    Path      INT[]       DEFAULT ARRAY []::INTEGER[]
+    Forum     CITEXT,
+    IsEdited  BOOLEAN     DEFAULT FALSE,
+    Message   TEXT        NOT NULL,
+    Parent    INT         DEFAULT 0,
+    Thread    INT,
+    Path      INT[]       DEFAULT ARRAY []::INTEGER[],
+    FOREIGN KEY (thread) REFERENCES "threads" (id),
+    FOREIGN KEY (author) REFERENCES "users"  (nickname)
 );
 
 CREATE UNLOGGED TABLE votes
 (
-    Author  CITEXT   UNIQUE REFERENCES "users"(Nickname),
-    Voice   INT      NOT NULL DEFAULT 0,
-    Thread  INT      UNIQUE REFERENCES "threads"(Id)
+    ID     SERIAL PRIMARY KEY,
+    Author CITEXT    REFERENCES "users" (Nickname),
+    Voice  INT       NOT NULL,
+    Thread INT,
+    FOREIGN KEY (thread) REFERENCES "threads" (id),
+    UNIQUE (Author, Thread)
 );
 
 
 CREATE UNLOGGED TABLE users_forum
 (
-    Nickname  CITEXT  REFERENCES "users"(Nickname) UNIQUE NOT NULL,
+    Nickname  CITEXT  NOT NULL,
     FullName  TEXT    NOT NULL,
     -- ?????
-    About     TEXT    NOT NULL DEFAULT '',
-    Email     CITEXT  UNIQUE,
-    Slug      CITEXT  REFERENCES "forum"(Slug) UNIQUE NOT NULL
+    About     TEXT,
+    Email     CITEXT,
+    Slug      CITEXT  NOT NULL,
+    FOREIGN KEY (Nickname) REFERENCES "users" (Nickname),
+    FOREIGN KEY (Slug) REFERENCES "forum" (Slug),
+    UNIQUE (Nickname, Slug)
 );
 
 create index if not exists user_nickname ON users using hash(nickname);
@@ -79,7 +87,7 @@ create unique index if not exists vote_unique on votes(Author, Thread);
 CREATE OR REPLACE FUNCTION insertVotes() RETURNS TRIGGER AS
 $update_vote$
 BEGIN
-    UPDATE thread SET votes=(votes+NEW.voice) WHERE id=NEW.thread;
+    UPDATE threads SET votes=(votes+NEW.voice) WHERE id=NEW.thread;
     return NEW;
 end
 $update_vote$ LANGUAGE plpgsql;
@@ -167,26 +175,25 @@ EXECUTE PROCEDURE updateCountOfThreads();
 
 
 CREATE OR REPLACE FUNCTION updatePath() RETURNS TRIGGER AS
-$update_paths$
+$update_path$
 DECLARE
-    parentPath         BIGINT[];
-    first_parent_thread INT;
+    parent_path  INTEGER[];
+    parent_thread int;
 BEGIN
-    IF (NEW.parent IS NULL) THEN
+    IF (NEW.parent = 0) THEN
         NEW.path := array_append(new.path, new.id);
     ELSE
-        SELECT path FROM posts WHERE id = new.parent INTO parentPath;
-        SELECT thread FROM posts WHERE id = parentPath[1] INTO first_parent_thread;
-        IF NOT FOUND OR first_parent_thread <> NEW.thread THEN
-            RAISE EXCEPTION 'parent is from different thread' USING ERRCODE = '00409';
+        SELECT thread FROM posts WHERE id = new.parent INTO parent_thread;
+        IF NOT FOUND OR parent_thread != NEW.thread THEN
+            RAISE EXCEPTION 'this is an exception' USING ERRCODE = '22000';
         end if;
 
-        NEW.path := NEW.path || parentPath || new.id;
-    end if;
-    UPDATE forum SET Posts=Posts + 1 WHERE forum.slug = new.forum;
+        SELECT path FROM posts WHERE id = new.parent INTO parent_path;
+        NEW.path := parent_path || new.id;
+    END IF;
     RETURN new;
-end
-$update_paths$ LANGUAGE plpgsql;
+END
+$update_path$ LANGUAGE plpgsql;
 
 CREATE TRIGGER update_path_trigger
     BEFORE INSERT

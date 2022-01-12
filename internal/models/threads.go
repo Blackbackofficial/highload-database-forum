@@ -14,3 +14,14 @@ type Thread struct {
 	Slug    string    `json:"slug,omitempty"`
 	Created time.Time `json:"created,omitempty"`
 }
+
+type ThreadO struct {
+	Id      int       `json:"id"`
+	Title   string    `json:"title"`
+	Author  string    `json:"author"`
+	Forum   string    `json:"forum"`
+	Message string    `json:"message"`
+	Votes   int       `json:"votes"`
+	Slug    string    `json:"-"`
+	Created time.Time `json:"created"`
+}

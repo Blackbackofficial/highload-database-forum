@@ -4,7 +4,7 @@ import (
 	"forumI/internal/models"
 	"forumI/internal/pkg/forum"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx"
+	"github.com/jackc/pgconn"
 	"strconv"
 )
 
@@ -25,10 +25,10 @@ func (u *UseCase) Forum(forum models.Forum) (models.Forum, models.StatusCode) {
 
 	errI := u.repo.InForum(forum)
 	if errI != nil {
-		if pgError, ok := errI.(pgx.PgError); ok && pgError.Code == "23503" {
+		if pgError, ok := errI.(*pgconn.PgError); ok && pgError.Code == "23503" {
 			return models.Forum{}, models.NotFound
 		}
-		if pgError, ok := errI.(pgx.PgError); ok && pgError.Code == "23505" {
+		if pgError, ok := errI.(*pgconn.PgError); ok && pgError.Code == "23505" {
 			forumM, _ := u.repo.GetForum(forum.Slug)
 			return forumM, models.Conflict
 		}
@@ -54,20 +54,26 @@ func (u *UseCase) CreateThreadsForum(thread models.Thread) (models.Thread, model
 	if status != models.Okey {
 		return models.Thread{}, status
 	}
-	slug := uuid.New().String()
-	thread.Slug = slug
+
+	if thread.Slug != "" {
+
+	} else {
+		slug := uuid.New().String()
+		thread.Slug = slug
+	}
 	thread.Author = user.NickName
 	thread.Forum = forumS.Slug
 
-	thread, errI := u.repo.InThread(thread)
+	slug := thread.Slug
+	threadN, errI := u.repo.InThread(thread)
 	if errI != nil {
-		if pgError, ok := errI.(pgx.PgError); ok && pgError.Code == "23505" {
+		if pgError, ok := errI.(*pgconn.PgError); ok && pgError.Code == "23505" {
 			threadM, _ := u.repo.GetThreadSlug(slug)
 			return threadM, models.Conflict
 		}
 		return models.Thread{}, models.InternalError
 	}
-	return thread, models.Created
+	return threadN, models.Created
 }
 
 func (u *UseCase) GetUsersOfForum(forum models.Forum, limit string, since string, desc string) ([]models.User, models.StatusCode) {
@@ -135,10 +141,9 @@ func (u *UseCase) CheckThreadIdOrSlug(slugOrId string) (models.Thread, models.St
 }
 
 func (u *UseCase) CreatePosts(inPosts []models.Post, thread models.Thread) ([]models.Post, models.StatusCode) {
-	posts := make([]models.Post, 0)
 	posts, err := u.repo.InPosts(inPosts, thread)
 	if err != nil {
-		if pgError, ok := err.(pgx.PgError); ok && pgError.Code == "23503" {
+		if pgError, ok := err.(*pgconn.PgError); ok && pgError.Code == "23503" {
 			return nil, models.NotFound
 		} else {
 			return nil, models.Conflict
@@ -173,14 +178,14 @@ func (u *UseCase) GetPostOfThread(limit string, since string, desc string, sort 
 func (u *UseCase) Voted(vote models.Vote, thread models.Thread) (models.Thread, models.StatusCode) {
 	err := u.repo.InVoted(vote)
 	if err != nil {
-		if pgError, ok := err.(pgx.PgError); ok && pgError.Code == "23505" {
+		if pgError, ok := err.(*pgconn.PgError); ok && pgError.Code == "23505" {
 			_, err := u.repo.UpVote(vote)
 			if err != nil {
 				return models.Thread{}, models.InternalError
 			}
 			return thread, models.Okey
 		}
-		if pgErr, ok := err.(pgx.PgError); ok && pgErr.Code == "23503" {
+		if pgErr, ok := err.(*pgconn.PgError); ok && pgErr.Code == "23503" {
 			return models.Thread{}, models.NotFound
 		}
 		return models.Thread{}, models.InternalError
@@ -188,8 +193,17 @@ func (u *UseCase) Voted(vote models.Vote, thread models.Thread) (models.Thread, 
 	return thread, models.Okey
 }
 
-func (u *UseCase) CreateUsers(user models.User) (models.User, models.StatusCode) {
-	return u.repo.CreateUsers(user)
+func (u *UseCase) CreateUsers(user models.User) ([]models.User, models.StatusCode) {
+	usersS := make([]models.User, 0)
+	usersS = append(usersS, user)
+	chUsers, _ := u.repo.CheckUserEmailUniq(usersS)
+	if len(chUsers) > 0 {
+		return chUsers, models.Conflict
+	}
+	usersS = make([]models.User, 0)
+	cUser, _ := u.repo.CreateUsers(user)
+	usersS = append(usersS, cUser)
+	return usersS, models.Created
 }
 
 func (u *UseCase) GetUser(user models.User) (models.User, models.StatusCode) {
@@ -199,7 +213,7 @@ func (u *UseCase) GetUser(user models.User) (models.User, models.StatusCode) {
 func (u *UseCase) ChangeInfoUser(user models.User) (models.User, models.StatusCode) {
 	userS, err := u.repo.ChangeInfoUser(user)
 	if err != nil {
-		if pgError, ok := err.(pgx.PgError); ok && pgError.Code == "23505" {
+		if pgError, ok := err.(*pgconn.PgError); ok && pgError.Code == "23505" {
 			return models.User{}, models.Conflict
 		}
 		return models.User{}, models.NotFound

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"forumI/internal/models"
 	"forumI/internal/pkg/forum"
-	"forumI/internal/pkg/utils"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"strings"
 	"time"
@@ -13,6 +12,7 @@ import (
 
 const (
 	SelectUserByNickname            = "select nickname, fullname, about, email from users where nickname=$1 limit 1;"
+	SelectUserByEmailOrNickname     = "select nickname, fullname, about, email from users where nickname=$1 or email=$2 limit 2;"
 	SelectForumBySlug               = "select slug, \"user\", title, posts, threads from forum where slug=$1 limit 1;"
 	InsertInForum                   = "insert into forum(slug, \"user\", title) values ($1, $2, $3);"
 	InsertInThread                  = "insert into threads(title, author, created, forum, message, slug) values ($1, $2, $3, $4, $5, $6) returning *"
@@ -92,8 +92,8 @@ func (r *repoPostgres) InThread(thread models.Thread) (models.Thread, error) {
 	row := r.Conn.QueryRow(context.Background(), InsertInThread, thread.Title,
 		thread.Author, thread.Created, thread.Forum, thread.Message, thread.Slug)
 
-	err := row.Scan(&threadS.ID, &threadS.Title, &threadS.Author, &threadS.Created,
-		&threadS.Forum, &threadS.Message, &threadS.Slug, &threadS.Votes)
+	err := row.Scan(&threadS.ID, &threadS.Title, &threadS.Author,
+		&threadS.Forum, &threadS.Message, &threadS.Votes, &threadS.Slug, &threadS.Created)
 	if err != nil {
 		return models.Thread{}, err
 	}
@@ -113,7 +113,7 @@ func (r *repoPostgres) GetThreadSlug(slug string) (models.Thread, models.StatusC
 
 func (r *repoPostgres) GetUsersOfForum(forum models.Forum, limit string, since string, desc string) ([]models.User, models.StatusCode) {
 	var query string
-	if desc != "" {
+	if desc == "true" {
 		if since != "" {
 			query = fmt.Sprintf(GetUsersOfForumDescNotNilSince, since)
 		} else {
@@ -147,7 +147,7 @@ func (r *repoPostgres) GetThreadsOfForum(forum models.Forum, limit string, since
 	threads := make([]models.Thread, 0)
 
 	if since != "" {
-		if desc != "" {
+		if desc == "true" {
 			rows, err := r.Conn.Query(context.Background(), GetThreadsSinceDescNotNil, forum.Slug, since, limit)
 			if err != nil {
 				return threads, models.NotFound
@@ -179,7 +179,7 @@ func (r *repoPostgres) GetThreadsOfForum(forum models.Forum, limit string, since
 			}
 		}
 	} else {
-		if desc != "" {
+		if desc == "true" {
 			rows, err := r.Conn.Query(context.Background(), GetThreadsDescNotNil, forum.Slug, limit)
 			if err != nil {
 				return threads, models.NotFound
@@ -305,40 +305,41 @@ func (r *repoPostgres) GetStatus() models.Status {
 }
 
 func (r *repoPostgres) InPosts(postsS []models.Post, thread models.Thread) ([]models.Post, error) {
-	rowQuery := InsertManyPosts
-	data := make([]interface{}, 0)
-	createdTime := time.Now()
-	for i, onePost := range postsS {
-		values := fmt.Sprintf("($%d, $%d, $%d, $%d, $%d, $%d),", i*6+1, i*6+2, i*6+3, i*6+4, i*6+5, i*6+6)
-		rowQuery += values
-		data = append(data, thread.ID)
-		data = append(data, onePost.Parent)
-		data = append(data, onePost.Author)
-		data = append(data, onePost.Message)
-		data = append(data, thread.Forum)
-		data = append(data, createdTime)
+	query := "INSERT INTO posts(author, created, forum, message, parent, thread) VALUES"
+
+	var values []interface{}
+	created := time.Now()
+	for i, post := range postsS {
+		value := fmt.Sprintf("($%d, $%d, $%d, $%d, $%d, $%d),", i*6+1, i*6+2, i*6+3, i*6+4, i*6+5, i*6+6)
+		query += value
+		values = append(values, post.Author)
+		values = append(values, created)
+		values = append(values, thread.Forum)
+		values = append(values, post.Message)
+		values = append(values, post.Parent)
+		values = append(values, thread.ID)
 	}
 
-	rowQuery = strings.TrimSuffix(rowQuery, ",")
-	rowQuery += ` RETURNING id, isEdited, forum, thread, created;`
+	query = strings.TrimSuffix(query, ",")
+	query += ` RETURNING id, created, forum, isEdited, thread;`
 
-	rows, err := r.Conn.Query(context.Background(), rowQuery, data...)
+	rows, err := r.Conn.Query(context.Background(), query, values...)
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 
 	for i := range postsS {
 		if rows.Next() {
-			err := rows.Scan(&postsS[i].ID, &postsS[i].IsEdited, &postsS[i].Forum, &postsS[i].Thread, &postsS[i].Created)
+			err := rows.Scan(&postsS[i].ID, &postsS[i].Created, &postsS[i].Forum, &postsS[i].IsEdited, &postsS[i].Thread)
 			if err != nil {
-				return nil, utils.Conflict
+				return nil, err
 			}
 		}
 	}
 	if rows.Err() != nil {
 		return nil, rows.Err()
 	}
-	defer rows.Close()
 	return postsS, nil
 }
 
@@ -367,7 +368,7 @@ func (r *repoPostgres) UpdateThreadInfo(upThread models.Thread) (models.Thread, 
 func (r *repoPostgres) GetPostsFlat(limit string, since string, desc string, ID int) ([]models.Post, models.StatusCode) {
 	manyPosts := make([]models.Post, 0)
 	if since != "" {
-		if desc != "" {
+		if desc == "true" {
 			rows, err := r.Conn.Query(context.Background(), SelectPostSinceDescNotNil, ID, limit)
 			if err != nil {
 				return manyPosts, models.InternalError
@@ -397,7 +398,7 @@ func (r *repoPostgres) GetPostsFlat(limit string, since string, desc string, ID 
 			}
 		}
 	} else {
-		if desc != "" {
+		if desc == "true" {
 			rows, err := r.Conn.Query(context.Background(), SelectPostDescNotNil, ID, since, limit)
 			if err != nil {
 				return manyPosts, models.InternalError
@@ -433,7 +434,7 @@ func (r *repoPostgres) GetPostsFlat(limit string, since string, desc string, ID 
 func (r *repoPostgres) GetPostsTree(limit string, since string, desc string, ID int) ([]models.Post, models.StatusCode) {
 	manyPosts := make([]models.Post, 0)
 	if since == "" {
-		if desc != "" {
+		if desc == "true" {
 			rows, err := r.Conn.Query(context.Background(), SelectPostTreeSinceDescNotNil, ID, limit)
 			if err != nil {
 				return manyPosts, models.InternalError
@@ -500,7 +501,7 @@ func (r *repoPostgres) GetPostsParent(limit string, since string, desc string, I
 	manyPosts := make([]models.Post, 0)
 
 	if since == "" {
-		if desc != "" {
+		if desc == "true" {
 			rows, err := r.Conn.Query(context.Background(), SelectPostParentSinceDescNotNil, ID, limit)
 			if err != nil {
 				return manyPosts, models.InternalError
@@ -530,7 +531,7 @@ func (r *repoPostgres) GetPostsParent(limit string, since string, desc string, I
 			}
 		}
 	} else {
-		if desc != "" {
+		if desc == "true" {
 			rows, err := r.Conn.Query(context.Background(), SelectPostParentDescNotNil, ID, since, limit)
 			if err != nil {
 				return manyPosts, models.InternalError
@@ -572,13 +573,29 @@ func (r *repoPostgres) InVoted(vote models.Vote) error {
 }
 
 func (r *repoPostgres) UpVote(vote models.Vote) (models.Vote, error) {
-	_, err := r.Conn.Exec(context.Background(), UpdateVote, vote.Nickname, vote.Voice, vote.Thread)
+	_, err := r.Conn.Exec(context.Background(), UpdateVote, vote.Voice, vote.Nickname, vote.Thread)
 	if err != nil {
 		return models.Vote{}, err
 	}
 	return vote, nil
 }
-
+func (r *repoPostgres) CheckUserEmailUniq(usersS []models.User) ([]models.User, models.StatusCode) {
+	rows, err := r.Conn.Query(context.Background(), SelectUserByEmailOrNickname, usersS[0].NickName, usersS[0].Email)
+	defer rows.Close()
+	if err != nil {
+		return []models.User{}, models.InternalError
+	}
+	users := make([]models.User, 0)
+	for rows.Next() {
+		userOne := models.User{}
+		err := rows.Scan(&userOne.NickName, &userOne.FullName, &userOne.About, &userOne.Email)
+		if err != nil {
+			return []models.User{}, models.InternalError
+		}
+		users = append(users, userOne)
+	}
+	return users, models.Okey
+}
 func (r *repoPostgres) CreateUsers(user models.User) (models.User, models.StatusCode) {
 	_, err := r.Conn.Exec(context.Background(), `Insert INTO users(Nickname, FullName, About, Email) VALUES ($1, $2, $3, $4);`,
 		user.NickName, user.FullName, user.About, user.Email)

@@ -1,6 +1,8 @@
 package models
 
-import "time"
+import (
+	"time"
+)
 
 // easyjson -all ./internal/models/posts.go
 

@@ -62,8 +62,29 @@ func (h *Handler) CreateThreadsForum(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	threadS.Forum = slug
+	check := threadS.Slug
 
 	threadS, status := h.uc.CreateThreadsForum(threadS)
+	if status == models.Conflict {
+		utils.Response(w, status, threadS)
+		return
+	}
+
+	if check == "" {
+		threadOut := models.ThreadO{
+			Id:      threadS.ID,
+			Title:   threadS.Title,
+			Author:  threadS.Author,
+			Forum:   threadS.Forum,
+			Message: threadS.Message,
+			Votes:   threadS.Votes,
+			Slug:    threadS.Slug,
+			Created: threadS.Created,
+		}
+
+		utils.Response(w, status, threadOut)
+		return
+	}
 	utils.Response(w, status, threadS)
 }
 
@@ -214,7 +235,7 @@ func (h *Handler) CreatePosts(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if len(posts) == 0 {
-		utils.Response(w, models.Created, []byte("[]"))
+		utils.Response(w, models.Created, []models.Post{})
 		return
 	}
 
@@ -348,12 +369,12 @@ func (h *Handler) CreateUsers(w http.ResponseWriter, r *http.Request) {
 	}
 	userS.NickName = nickname
 
-	userC, status := h.uc.GetUser(userS)
-	if status == models.Okey {
-		utils.Response(w, models.Conflict, userC)
+	finalUser, status := h.uc.CreateUsers(userS)
+	if status == models.Created {
+		newU := finalUser[0]
+		utils.Response(w, status, newU)
 		return
 	}
-	finalUser, status := h.uc.CreateUsers(userS)
 	utils.Response(w, status, finalUser)
 }
 
