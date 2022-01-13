@@ -9,12 +9,12 @@ ADD . /opt/app
 WORKDIR /opt/app
 RUN go build ./cmd/main.go
 
-FROM ubuntu:21.04
+FROM ubuntu:20.04
 
 RUN apt-get -y update
 RUN apt-get install -y tzdata
 
-ENV PGVER 13
+ENV PGVER 12
 RUN apt-get -y update && apt-get install -y postgresql-$PGVER
 
 USER postgres
