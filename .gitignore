@@ -16,6 +16,7 @@
 
 # garbage
 .idea/
+.DS_Store
 main
 
 # for test
