@@ -3,7 +3,6 @@ package usecase
 import (
 	"forumI/internal/models"
 	"forumI/internal/pkg/forum"
-	"github.com/google/uuid"
 	"github.com/jackc/pgconn"
 	"strconv"
 )
@@ -45,35 +44,7 @@ func (u *UseCase) GetForum(forum models.Forum) (models.Forum, models.StatusCode)
 }
 
 func (u *UseCase) CreateThreadsForum(thread models.Thread) (models.Thread, models.StatusCode) {
-	forumS, status := u.repo.GetForum(thread.Forum)
-	if status != models.Okey {
-		return models.Thread{}, status
-	}
-
-	user, status := u.repo.GetUser(thread.Author)
-	if status != models.Okey {
-		return models.Thread{}, status
-	}
-
-	if thread.Slug != "" {
-
-	} else {
-		slug := uuid.New().String()
-		thread.Slug = slug
-	}
-	thread.Author = user.NickName
-	thread.Forum = forumS.Slug
-
-	slug := thread.Slug
-	threadN, errI := u.repo.InThread(thread)
-	if errI != nil {
-		if pgError, ok := errI.(*pgconn.PgError); ok && pgError.Code == "23505" {
-			threadM, _ := u.repo.GetThreadSlug(slug)
-			return threadM, models.Conflict
-		}
-		return models.Thread{}, models.InternalError
-	}
-	return threadN, models.Created
+	return u.repo.InThread(thread)
 }
 
 func (u *UseCase) GetUsersOfForum(forum models.Forum, limit string, since string, desc string) ([]models.User, models.StatusCode) {

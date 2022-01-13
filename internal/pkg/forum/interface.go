@@ -26,7 +26,7 @@ type Repository interface {
 	GetUser(name string) (models.User, models.StatusCode)
 	InForum(forum models.Forum) error
 	GetForum(slug string) (models.Forum, models.StatusCode)
-	InThread(thread models.Thread) (models.Thread, error)
+	InThread(thread models.Thread) (models.Thread, models.StatusCode)
 	GetThreadSlug(slug string) (models.Thread, models.StatusCode)
 	GetUsersOfForum(forum models.Forum, limit string, since string, desc string) ([]models.User, models.StatusCode)
 	GetThreadsOfForum(forum models.Forum, limit string, since string, desc string) ([]models.Thread, models.StatusCode)

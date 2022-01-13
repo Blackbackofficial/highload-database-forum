@@ -62,27 +62,10 @@ func (h *Handler) CreateThreadsForum(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	threadS.Forum = slug
-	check := threadS.Slug
 
 	threadS, status := h.uc.CreateThreadsForum(threadS)
 	if status == models.Conflict {
 		utils.Response(w, status, threadS)
-		return
-	}
-
-	if check == "" {
-		threadOut := models.ThreadO{
-			Id:      threadS.ID,
-			Title:   threadS.Title,
-			Author:  threadS.Author,
-			Forum:   threadS.Forum,
-			Message: threadS.Message,
-			Votes:   threadS.Votes,
-			Slug:    threadS.Slug,
-			Created: threadS.Created,
-		}
-
-		utils.Response(w, status, threadOut)
 		return
 	}
 	utils.Response(w, status, threadS)
@@ -370,6 +353,7 @@ func (h *Handler) CreateUsers(w http.ResponseWriter, r *http.Request) {
 	utils.Response(w, status, finalUser)
 }
 
+// GetUser /user/{nickname}/profile
 func (h *Handler) GetUser(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	nickname, found := vars["nickname"]
@@ -385,6 +369,7 @@ func (h *Handler) GetUser(w http.ResponseWriter, r *http.Request) {
 	utils.Response(w, status, finalUser)
 }
 
+// ChangeInfoUser /user/{nickname}/profile
 func (h *Handler) ChangeInfoUser(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	nickname, found := vars["nickname"]

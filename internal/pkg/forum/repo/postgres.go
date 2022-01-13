@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"forumI/internal/models"
 	"forumI/internal/pkg/forum"
+	"github.com/jackc/pgconn"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"strings"
@@ -12,44 +13,47 @@ import (
 )
 
 const (
-	SelectUserByNickname            = "select nickname, fullname, about, email from users where nickname=$1 limit 1;"
-	SelectUserByEmailOrNickname     = "select nickname, fullname, about, email from users where nickname=$1 or email=$2 limit 2;"
-	SelectForumBySlug               = "select title, \"user\", slug, posts, threads from forum where slug=$1 limit 1;"
-	InsertInForum                   = "insert into forum(slug, \"user\", title) values ($1, $2, $3);"
-	InsertInThread                  = "insert into threads(title, author, created, forum, message, slug) values ($1, $2, $3, $4, $5, $6) returning *"
-	SelectThreadSlug                = "select id, title, author, forum, message, votes, slug, created from threads where slug=$1 limit 1;"
-	GetUsersOfForumDescNotNilSince  = "select nickname, fullname, about, email from users_forum where slug=$1 and nickname < '%s' order by nickname desc limit nullif($2, 0)"
-	GetUsersOfForumDescSinceNil     = "select nickname, fullname, about, email from users_forum where slug=$1 order by nickname desc limit nullif($2, 0)"
-	GetUsersOfForumDescNil          = "select nickname, fullname, about, email from users_forum where slug=$1 and nickname > '%s' order by nickname limit nullif($2, 0)"
-	GetThreadsSinceDescNotNil       = "select id, title, author, forum, message, votes, slug, created from threads where forum=$1 and created <= $2 order by created desc limit $3;"
-	GetThreadsSinceDescNil          = "select id, title, author, forum, message, votes, slug, created from threads where forum=$1 and created >= $2 order by created asc limit $3;"
-	GetThreadsDescNotNil            = "select id, title, author, forum, message, votes, slug, created from threads where forum=$1 order by created desc limit $2;"
-	GetThreadsDescNil               = "select id, title, author, forum, message, votes, slug, created from threads where forum=$1 order by created asc limit $2;"
-	SelectPostById                  = "select author, message, created, forum, isedited, parent, thread from posts where id = $1;"
-	SelectThreadId                  = "select id, title, author, forum, message, votes, slug, created from threads where id=$1 LIMIT 1;"
-	UpdatePostMessage               = "update posts set message=coalesce(nullif($1, ''), message), isedited = case when $1 = '' or message = $1 then isedited else true end where id=$2 returning *"
-	ClearAll                        = "truncate table users, forum, threads, posts, votes, users_forum CASCADE;"
-	SelectCountUsers                = "select count(*) from users;"
-	SelectCountForum                = "select count(*) from forum;"
-	SelectCountThreads              = "select count(*) from threads;"
-	SelectCountPosts                = "select count(*) from posts;"
-	InsertManyPosts                 = "insert into posts(author, created, forum, message, parent, thread) values"
-	UpdateThread                    = "update threads set title=coalesce(nullif($1, ''), title), message=coalesce(nullif($2, ''), message) where %s returning *"
-	SelectPostSinceDescNotNil       = "select id, author, created, forum, isedited, message, parent, thread from posts where thread=$1 order by id desc limit $2;"
-	SelectPostSinceDescNil          = "select id, author, created, forum, isedited, message, parent, thread from posts where thread=$1 order by id limit $2;"
-	SelectPostDescNotNil            = "select id, author, created, forum, isedited, message, parent, thread from posts where thread=$1 and id < $2 order by id desc limit $3;"
-	SelectPostDescNil               = "select id, author, created, forum, isedited, message, parent, thread from posts where thread=$1 and id > $2 order by id limit $3;"
-	SelectPostTreeSinceDescNotNil   = "select id, author, created, forum, isedited, message, parent, thread from posts where thread=$1 order by path desc, id desc limit $2;"
-	SelectPostTreeSinceDescNil      = "select id, author, created, forum, isedited, message, parent, thread from posts where thread=$1 order by path asc, id asc limit $2;"
-	SelectPostTreeDescNotNil        = "select id, author, created, forum, isedited, message, parent, thread from posts where thread=$1 and path < (select path from posts where id = $2) order by path desc, id desc limit $3;"
-	SelectPostTreeDescNil           = "select id, author, created, forum, isedited, message, parent, thread from posts where thread=$1 and path > (select path from posts where id = $2) order by path asc, id asc limit $3;"
-	SelectPostParentSinceDescNotNil = "select id, author, created, forum, isedited, message, parent, thread from posts where path[1] in (select id from posts where thread = $1 and parent is null order by id desc limit $2) order by path[1] desc, path, id;"
-	SelectPostParentSinceDescNil    = "select id, author, created, forum, isedited, message, parent, thread from posts where path[1] in (select id from posts where thread = $1 and parent is null order by id limit $2) order by path, id;"
-	SelectPostParentDescNotNil      = "select id, author, created, forum, isedited, message, parent, thread from posts where path[1] IN (select id from posts where thread = $1 and parent is null and path[1] < (select path[1] from posts where id = $2) order by id desc limit $3) order by path[1] desc, path, id;"
-	SelectPostParentDescNil         = "select id, author, created, forum, isedited, message, parent, thread from posts where path[1] IN (select id from posts where thread = $1 and parent is null and path[1] > (select path[1] from posts where id = $2) order by id asc limit $3) order by path, id;"
-	UpdateVote                      = "update votes set voice=$1 where author=$2 and thread=$3;"
-	InsertVote                      = "insert into votes(author, voice, thread) values ($1, $2, $3);"
-	UpdateUser                      = "update users set fullname=coalesce(nullif($1, ''), fullname), about=coalesce(nullif($2, ''), about), email=coalesce(nullif($3, ''), email) where nickname=$4 returning *"
+	SelectUserByNickname           = "select nickname, fullname, about, email from users where nickname=$1 limit 1;"
+	SelectUserByEmailOrNickname    = "select nickname, fullname, about, email from users where nickname=$1 or email=$2 limit 2;"
+	SelectForumBySlug              = "select title, \"user\", slug, posts, threads from forum where slug=$1 limit 1;"
+	InsertInForum                  = "insert into forum(slug, \"user\", title) values ($1, $2, $3);"
+	SelectThread                   = "select id, author, message, title, created, forum, slug, votes from threads where slug = $1 limit 1;"
+	SelectThreadSlug               = "select id, title, author, forum, message, votes, slug, created from threads where slug=$1 limit 1;"
+	GetUsersOfForumDescNotNilSince = "select nickname, fullname, about, email from users_forum where slug=$1 and nickname < '%s' order by nickname desc limit nullif($2, 0)"
+	GetUsersOfForumDescSinceNil    = "select nickname, fullname, about, email from users_forum where slug=$1 order by nickname desc limit nullif($2, 0)"
+	GetUsersOfForumDescNil         = "select nickname, fullname, about, email from users_forum where slug=$1 and nickname > '%s' order by nickname limit nullif($2, 0)"
+	GetThreadsSinceDescNotNil      = "select id, title, author, forum, message, votes, slug, created from threads where forum=$1 and created <= $2 order by created desc limit $3;"
+	GetThreadsSinceDescNil         = "select id, title, author, forum, message, votes, slug, created from threads where forum=$1 and created >= $2 order by created asc limit $3;"
+	GetThreadsDescNotNil           = "select id, title, author, forum, message, votes, slug, created from threads where forum=$1 order by created desc limit $2;"
+	GetThreadsDescNil              = "select id, title, author, forum, message, votes, slug, created from threads where forum=$1 order by created asc limit $2;"
+	SelectPostById                 = "select author, message, created, forum, isedited, parent, thread from posts where id = $1;"
+	SelectThreadId                 = "select id, title, author, forum, message, votes, slug, created from threads where id=$1 LIMIT 1;"
+	UpdatePostMessage              = "update posts set message=coalesce(nullif($1, ''), message), isedited = case when $1 = '' or message = $1 then isedited else true end where id=$2 returning *"
+	ClearAll                       = "truncate table users, forum, threads, posts, votes, users_forum CASCADE;"
+	SelectCountUsers               = "select count(*) from users;"
+	SelectCountForum               = "select count(*) from forum;"
+	SelectCountThreads             = "select count(*) from threads;"
+	SelectCountPosts               = "select count(*) from posts;"
+	InsertThread                   = "insert into threads (author, message, title, created, forum, slug, votes) values ($1, $2, $3, $4, $5, $6, $7) returning id"
+	UpdateThread                   = "update threads set title=coalesce(nullif($1, ''), title), message=coalesce(nullif($2, ''), message) where %s returning *"
+	SelectPostSinceDescNotNil      = "select id, author, created, forum, isedited, message, parent, thread from posts where thread=$1 order by id desc limit $2;"
+	SelectPostSinceDescNil         = "select id, author, created, forum, isedited, message, parent, thread from posts where thread=$1 order by id limit $2;"
+	SelectPostDescNotNil           = "select id, author, created, forum, isedited, message, parent, thread from posts where thread=$1 and id < $2 order by id desc limit $3;"
+	SelectPostDescNil              = "select id, author, created, forum, isedited, message, parent, thread from posts where thread=$1 and id > $2 order by id limit $3;"
+	SelectThreadShort              = "select slug, author from threads where slug = $1;"
+	SelectSlugFromForum            = "select slug from forum where slug = $1;"
+	InsertIntoPosts                = "insert into posts(author, created, forum, message, parent, thread) values"
+	SelectTreeLimitSinceNil        = "select id, author, created, forum, isedited, message, parent, thread from posts where thread = $1 order by path, id desc"
+	SelectTreeLimitSinceDescNil    = "select id, author, created, forum, isedited, message, parent, thread from posts where thread = $1 order by path, id asc"
+	SelectTreeSinceNil             = "select id, author, created, forum, isedited, message, parent, thread from posts where thread = $1 order by path desc, id desc limit $2"
+	SelectTreeSinceDescNil         = "select id, author, created, forum, isedited, message, parent, thread from posts where thread = $1 order by path, id asc limit $2"
+	SelectTreeNotNil               = "select posts.id, posts.author, posts.created, posts.forum, posts.isedited, posts.message, posts.parent, posts.thread from posts join posts parent on parent.id = $2 where posts.path < parent.path and posts.thread = $1 order by posts.path desc, posts.id desc limit $3"
+	SelectTree                     = "select posts.id, posts.author, posts.created, posts.forum, posts.isedited, posts.message, posts.parent, posts.thread from posts join posts parent on parent.id = $2 where posts.path > parent.path and posts.thread = $1 order by posts.path asc, posts.id asc limit $3"
+	SelectTreeSinceNilDesc         = "select posts.id, posts.author, posts.created, posts.forum, posts.isedited, posts.message, posts.parent, posts.thread from posts join posts parent on parent.id = $2 where posts.path < parent.path and posts.thread = $1 order by posts.path desc, posts.id desc"
+	SelectTreeSinceNilDescNil      = "select posts.id, posts.author, posts.created, posts.forum, posts.isedited, posts.message, posts.parent, posts.thread from posts join posts parent on parent.id = $2 where posts.path > parent.path and posts.thread = $1 order by posts.path asc, posts.id asc"
+	UpdateVote                     = "update votes set voice=$1 where author=$2 and thread=$3;"
+	InsertVote                     = "insert into votes(author, voice, thread) values ($1, $2, $3);"
+	UpdateUser                     = "update users set fullname=coalesce(nullif($1, ''), fullname), about=coalesce(nullif($2, ''), about), email=coalesce(nullif($3, ''), email) where nickname=$4 returning *"
 )
 
 type repoPostgres struct {
@@ -71,18 +75,31 @@ func (r *repoPostgres) GetUser(name string) (models.User, models.StatusCode) {
 }
 
 func (r *repoPostgres) ForumCheck(forum models.Forum) (models.Forum, models.StatusCode) {
-	query := `SELECT slug FROM forums 
-				WHERE slug = $1;`
-
-	row := r.Conn.QueryRow(context.Background(), query, forum.Slug)
-
+	row := r.Conn.QueryRow(context.Background(), SelectSlugFromForum, forum.Slug)
 	err := row.Scan(&forum.Slug)
-
 	if err != nil {
 		return forum, models.NotFound
 	}
-
 	return forum, models.Okey
+}
+
+func (r *repoPostgres) CheckSlug(thread models.Thread) (models.Thread, models.StatusCode) {
+	row := r.Conn.QueryRow(context.Background(), SelectThreadShort, thread.Slug)
+	err := row.Scan(&thread.Slug, &thread.Author)
+	if err != nil {
+		return thread, models.NotFound
+	}
+	return thread, models.Okey
+}
+
+func (r *repoPostgres) GetThreadBySlug(check string, thread models.Thread) (models.Thread, models.StatusCode) {
+	row := r.Conn.QueryRow(context.Background(), SelectThread, check)
+	err := row.Scan(&thread.ID, &thread.Author, &thread.Message,
+		&thread.Title, &thread.Created, &thread.Forum, &thread.Slug, &thread.Votes)
+	if err != nil {
+		return thread, models.NotFound
+	}
+	return thread, models.Okey
 }
 
 func (r *repoPostgres) InForum(forum models.Forum) error {
@@ -103,17 +120,44 @@ func (r *repoPostgres) GetForum(slug string) (models.Forum, models.StatusCode) {
 	return forumM, models.Okey
 }
 
-func (r *repoPostgres) InThread(thread models.Thread) (models.Thread, error) {
-	threadS := models.Thread{}
-	row := r.Conn.QueryRow(context.Background(), InsertInThread, thread.Title,
-		thread.Author, thread.Created, thread.Forum, thread.Message, thread.Slug)
-
-	err := row.Scan(&threadS.ID, &threadS.Title, &threadS.Author,
-		&threadS.Forum, &threadS.Message, &threadS.Votes, &threadS.Slug, &threadS.Created)
-	if err != nil {
-		return models.Thread{}, err
+func (r *repoPostgres) InThread(thread models.Thread) (models.Thread, models.StatusCode) {
+	user, status := r.GetUser(thread.Author)
+	if status != models.Okey {
+		return models.Thread{}, models.NotFound
 	}
-	return threadS, nil
+
+	f, status := r.ForumCheck(models.Forum{Slug: thread.Forum})
+	if status == models.NotFound {
+		return models.Thread{}, models.NotFound
+	}
+	thread.Author = user.NickName
+	thread.Forum = f.Slug
+	threadS := thread
+
+	if thread.Slug != "" {
+		thread, status := r.CheckSlug(thread)
+		if status == models.Okey {
+			th, _ := r.GetThreadBySlug(thread.Slug, threadS)
+			return th, models.Conflict
+		}
+	}
+	row := r.Conn.QueryRow(context.Background(), InsertThread, thread.Author, thread.Message, thread.Title,
+		thread.Created, thread.Forum, thread.Slug, 0)
+	err := row.Scan(&threadS.ID)
+
+	if err != nil {
+		if pqError, ok := err.(*pgconn.PgError); ok {
+			switch pqError.Code {
+			case "23503":
+				return models.Thread{}, models.NotFound
+			case "23505":
+				return threadS, models.Conflict
+			default:
+				return models.Thread{}, models.NotFound
+			}
+		}
+	}
+	return threadS, models.Created
 }
 
 func (r *repoPostgres) GetThreadSlug(slug string) (models.Thread, models.StatusCode) {
@@ -333,7 +377,7 @@ func (r *repoPostgres) GetStatus() models.Status {
 }
 
 func (r *repoPostgres) InPosts(postsS []models.Post, thread models.Thread) ([]models.Post, error) {
-	query := "INSERT INTO posts(author, created, forum, message, parent, thread) VALUES"
+	query := InsertIntoPosts
 
 	var values []interface{}
 	created := time.Now()
@@ -459,67 +503,42 @@ func (r *repoPostgres) GetPostsFlat(limit string, since string, desc string, ID 
 	return manyPosts, models.Okey
 }
 func (r *repoPostgres) getTree(id int, since, limit, desc string) pgx.Rows {
-
 	var rows pgx.Rows
-
-	query := ``
+	queryRow := ""
 
 	if limit == "" && since == "" {
 		if desc == "true" {
-			query = `SELECT id, author, created, forum, isedited, message, parent, thread
-				FROM posts
-				WHERE thread = $1 ORDER BY path, id DESC`
+			queryRow += SelectTreeLimitSinceNil
 		} else {
-			query = ` SELECT id, author, created, forum, isedited, message, parent, thread
-				FROM posts
-				WHERE thread = $1 ORDER BY path, id ASC`
+			queryRow += SelectTreeLimitSinceDescNil
 		}
-		rows, _ = r.Conn.Query(context.Background(), query, id)
+		rows, _ = r.Conn.Query(context.Background(), queryRow, id)
 	} else {
 		if limit != "" && since == "" {
 			if desc == "true" {
-				query += `SELECT id, author, created, forum, isedited, message, parent, thread
-				FROM posts
-				WHERE thread = $1 ORDER BY path DESC, id DESC LIMIT $2`
+				queryRow += SelectTreeSinceNil
 			} else {
-				query += `SELECT id, author, created, forum, isedited, message, parent, thread
-				FROM posts
-				WHERE thread = $1 ORDER BY path, id ASC LIMIT $2`
+				queryRow += SelectTreeSinceDescNil
 			}
-			rows, _ = r.Conn.Query(context.Background(), query, id, limit)
+			rows, _ = r.Conn.Query(context.Background(), queryRow, id, limit)
 		}
-
 		if limit != "" && since != "" {
 			if desc == "true" {
-				query = `SELECT posts.id, posts.author,
-				posts.created, posts.forum, posts.isedited, posts.message, posts.parent, posts.thread
-				FROM posts JOIN posts parent ON parent.id = $2 WHERE posts.path < parent.path AND  posts.thread = $1
-				ORDER BY posts.path DESC, posts.id DESC LIMIT $3`
+				queryRow = SelectTreeNotNil
 			} else {
-				query = `SELECT posts.id, posts.author,
-				posts.created, posts.forum, posts.isedited, posts.message, posts.parent, posts.thread
-				FROM posts JOIN posts parent ON parent.id = $2 WHERE posts.path > parent.path AND  posts.thread = $1
-				ORDER BY posts.path ASC, posts.id ASC LIMIT $3`
+				queryRow = SelectTree
 			}
-			rows, _ = r.Conn.Query(context.Background(), query, id, since, limit)
+			rows, _ = r.Conn.Query(context.Background(), queryRow, id, since, limit)
 		}
-
 		if limit == "" && since != "" {
 			if desc == "true" {
-				query = `SELECT posts.id, posts.author, 
-				posts.created, posts.forum, posts.isedited, posts.message, posts.parent, posts.thread
-				FROM posts JOIN posts parent ON parent.id = $2 WHERE posts.path < parent.path AND  posts.thread = $1
-				ORDER BY posts.path DESC, posts.id DESC`
+				queryRow = SelectTreeSinceNilDesc
 			} else {
-				query = `SELECT posts.id, posts.author, 
-				posts.created, posts.forum, posts.isedited, posts.message, posts.parent, posts.thread
-				FROM posts JOIN posts parent ON parent.id = $2 WHERE posts.path > parent.path AND  posts.thread = $1
-				ORDER BY posts.path ASC, posts.id ASC`
+				queryRow = SelectTreeSinceNilDescNil
 			}
-			rows, _ = r.Conn.Query(context.Background(), query, id, since)
+			rows, _ = r.Conn.Query(context.Background(), queryRow, id, since)
 		}
 	}
-
 	return rows
 }
 
@@ -540,50 +559,42 @@ func (r *repoPostgres) GetPostsTree(limit string, since string, desc string, ID 
 }
 
 func (r *repoPostgres) GetPostsParent(limit string, since string, desc string, ID int) ([]models.Post, models.StatusCode) {
-	posts := make([]models.Post, 0)
+	postsS := make([]models.Post, 0)
 	var rows pgx.Rows
-
-	parents := fmt.Sprintf(`SELECT id FROM posts WHERE thread = %d AND parent = 0 `, ID)
-
+	par := fmt.Sprintf(`SELECT id FROM posts WHERE thread = %d AND parent = 0 `, ID)
 	if since != "" {
 		if desc == "true" {
-			parents += ` AND path[1] < ` + fmt.Sprintf(`(SELECT path[1] FROM posts WHERE id = %s) `, since)
+			par += ` AND path[1] < ` + fmt.Sprintf(`(SELECT path[1] FROM posts WHERE id = %s) `, since)
 		} else {
-			parents += ` AND path[1] > ` + fmt.Sprintf(`(SELECT path[1] FROM posts WHERE id = %s) `, since)
+			par += ` AND path[1] > ` + fmt.Sprintf(`(SELECT path[1] FROM posts WHERE id = %s) `, since)
 		}
 	}
-
 	if desc == "true" {
-		parents += ` ORDER BY id DESC `
+		par += ` ORDER BY id DESC `
 	} else {
-		parents += ` ORDER BY id ASC `
+		par += ` ORDER BY id ASC `
 	}
-
 	if limit != "" {
-		parents += " LIMIT " + limit
+		par += " LIMIT " + limit
 	}
-
-	query := fmt.Sprintf(`SELECT id, author, created, forum, isedited, message, parent, thread FROM posts WHERE path[1] = ANY (%s) `, parents)
-
+	queryRow := fmt.Sprintf(`SELECT id, author, created, forum, isedited, message, parent, thread FROM posts WHERE path[1] = ANY (%s) `, par)
 	if desc == "true" {
-		query += ` ORDER BY path[1] DESC, path,  id `
+		queryRow += ` ORDER BY path[1] DESC, path,  id `
 	} else {
-		query += ` ORDER BY path[1] ASC, path,  id `
+		queryRow += ` ORDER BY path[1] ASC, path,  id `
 	}
 
-	rows, _ = r.Conn.Query(context.Background(), query)
-
+	rows, _ = r.Conn.Query(context.Background(), queryRow)
 	for rows.Next() {
 		var post models.Post
 		err := rows.Scan(&post.ID, &post.Author, &post.Created, &post.Forum, &post.IsEdited, &post.Message,
 			&post.Parent, &post.Thread)
 		if err != nil {
-			return posts, models.InternalError
+			return postsS, models.InternalError
 		}
-		posts = append(posts, post)
+		postsS = append(postsS, post)
 	}
-
-	return posts, models.Okey
+	return postsS, models.Okey
 }
 
 func (r *repoPostgres) InVoted(vote models.Vote) error {
@@ -601,6 +612,7 @@ func (r *repoPostgres) UpVote(vote models.Vote) (models.Vote, error) {
 	}
 	return vote, nil
 }
+
 func (r *repoPostgres) CheckUserEmailUniq(usersS []models.User) ([]models.User, models.StatusCode) {
 	rows, err := r.Conn.Query(context.Background(), SelectUserByEmailOrNickname, usersS[0].NickName, usersS[0].Email)
 	defer rows.Close()
@@ -618,6 +630,7 @@ func (r *repoPostgres) CheckUserEmailUniq(usersS []models.User) ([]models.User, 
 	}
 	return users, models.Okey
 }
+
 func (r *repoPostgres) CreateUsers(user models.User) (models.User, models.StatusCode) {
 	_, err := r.Conn.Exec(context.Background(), `Insert INTO users(Nickname, FullName, About, Email) VALUES ($1, $2, $3, $4);`,
 		user.NickName, user.FullName, user.About, user.Email)
