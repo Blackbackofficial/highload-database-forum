@@ -8,35 +8,35 @@ scrape_configs:
     static_configs:
       - targets: ['localhost:9090']
 
-  - job_name: 'vr-balancer-server'
+  - job_name: 'blackback-balancer-server'
     static_configs:
       - targets: ['node_exporter:9100']
 
   # SERVERS
 
   # SERVER 1
-  - job_name: 'vr-1-backend'
+  - job_name: 'blackback-1-backend'
     static_configs:
-      - targets: ['89.208.220.104:8080/api/api/v1/metrics']
+      - targets: ['5.188.142.220:5000']
 
-  - job_name: 'vr-1-server'
+  - job_name: 'blackback-1-server'
     static_configs:
-      - targets: ['89.208.220.104:9100']
+      - targets: ['5.188.142.220:9100']
 
   # SERVER 2
-  - job_name: 'vr-2-backend'
+  - job_name: 'blackback-2-backend'
     static_configs:
-      - targets: ['5.188.143.67:8080/api/api/v1/metrics']
+      - targets: ['89.208.229.114:5000']
 
-  - job_name: 'vr-2-server'
+  - job_name: 'blackback-2-server'
     static_configs:
-      - targets: ['5.188.143.67:9100']
+      - targets: ['89.208.229.114:9100']
 
   # SERVER 3
-  - job_name: 'vr-3-backend'
+  - job_name: 'blackback-3-backend'
     static_configs:
-      - targets: ['5.188.143.35:8080/api/api/v1/metrics']
+      - targets: ['5.188.143.20:5000']
 
-  - job_name: 'vr-3-server'
+  - job_name: 'blackback-3-server'
     static_configs:
-      - targets: ['5.188.143.35:9100']
+      - targets: ['5.188.143.20:9100']
