@@ -1,0 +1,42 @@
+global:
+  scrape_interval:     5s
+  evaluation_interval: 5s
+
+scrape_configs:
+  # LOAD BALANCER
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  - job_name: 'vr-balancer-server'
+    static_configs:
+      - targets: ['node_exporter:9100']
+
+  # SERVERS
+
+  # SERVER 1
+  - job_name: 'vr-1-backend'
+    static_configs:
+      - targets: ['89.208.220.104:8080/api/api/v1/metrics']
+
+  - job_name: 'vr-1-server'
+    static_configs:
+      - targets: ['89.208.220.104:9100']
+
+  # SERVER 2
+  - job_name: 'vr-2-backend'
+    static_configs:
+      - targets: ['5.188.143.67:8080/api/api/v1/metrics']
+
+  - job_name: 'vr-2-server'
+    static_configs:
+      - targets: ['5.188.143.67:9100']
+
+  # SERVER 3
+  - job_name: 'vr-3-backend'
+    static_configs:
+      - targets: ['5.188.143.35:8080/api/api/v1/metrics']
+
+  - job_name: 'vr-3-server'
+    static_configs:
+      - targets: ['5.188.143.35:9100']

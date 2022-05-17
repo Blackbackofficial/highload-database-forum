@@ -5,8 +5,10 @@ import (
 	"forumI/internal/pkg/forum/delivery"
 	"forumI/internal/pkg/forum/repo"
 	"forumI/internal/pkg/forum/usecase"
+	"forumI/internal/pkg/utils"
 	"github.com/gorilla/mux"
 	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"log"
 	"net/http"
 )
@@ -19,6 +21,9 @@ func main() {
 	if err != nil {
 		log.Fatal("No connection to postgres", err)
 	}
+
+	m := utils.NewMetricsMiddleware()
+	m.Register("forum")
 
 	fRepo := repo.NewRepoPostgres(pool)
 	fUsecase := usecase.NewRepoUsecase(fRepo)
@@ -48,6 +53,9 @@ func main() {
 		forum.HandleFunc("/user/{nickname}/profile", fHandler.GetUser).Methods(http.MethodGet)
 		forum.HandleFunc("/user/{nickname}/profile", fHandler.ChangeInfoUser).Methods(http.MethodPost)
 	}
+
+	muxRoute.Use(m.LogMetrics)
+	muxRoute.PathPrefix("/metrics").Handler(promhttp.Handler())
 
 	http.Handle("/", muxRoute)
 	log.Print(http.ListenAndServe(":5000", muxRoute))
