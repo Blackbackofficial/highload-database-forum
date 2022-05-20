@@ -1222,7 +1222,7 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 8,
+        "h": 11,
         "w": 14,
         "x": 10,
         "y": 18
@@ -1245,7 +1245,7 @@
             "type": "prometheus",
             "uid": "ngkrpTX7z"
           },
-          "expr": "rate(forum{code=\"200\",method=\"GET\",service=\"forum\",url=\"/api/service/status\"}[1m])",
+          "expr": "rate(forum{code=\"200\",method=\"GET\",url=\"/api/service/status\"}[1m])",
           "refId": "A"
         }
       ],
@@ -1482,10 +1482,10 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 8,
+        "h": 11,
         "w": 14,
         "x": 10,
-        "y": 26
+        "y": 29
       },
       "id": 45,
       "options": {
@@ -1587,11 +1587,11 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 34
+        "w": 24,
+        "x": 0,
+        "y": 40
       },
-      "id": 39,
+      "id": 77,
       "options": {
         "legend": {
           "calcs": [],
@@ -1603,13 +1603,14 @@
           "sort": "none"
         }
       },
+      "pluginVersion": "8.5.2",
       "targets": [
         {
           "datasource": {
             "type": "prometheus",
             "uid": "ngkrpTX7z"
           },
-          "expr": "rate(errors_hits{instance=\"5.188.142.220:9100\"}[10s])",
+          "expr": "histogram_quantile(0.95, sum(rate(durations_stats_bucket[5m])) by (le)) ",
           "refId": "A"
         },
         {
@@ -1617,7 +1618,7 @@
             "type": "prometheus",
             "uid": "ngkrpTX7z"
           },
-          "expr": "rate(errors_hits{instance=\"89.208.229.114:9100\"}[10s])",
+          "expr": "histogram_quantile(0.99, sum(rate(durations_stats_bucket[5m])) by (le)) ",
           "hide": false,
           "refId": "B"
         },
@@ -1626,107 +1627,12 @@
             "type": "prometheus",
             "uid": "ngkrpTX7z"
           },
-          "expr": "rate(errors_hits{instance=\"5.188.143.20:9100\"}[10s])",
+          "expr": "histogram_quantile(0.50, sum(rate(durations_stats_bucket[5m])) by (le)) ",
           "hide": false,
           "refId": "C"
         }
       ],
-      "title": "Error stat",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "ngkrpTX7z"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 0,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 40
-      },
-      "id": 43,
-      "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom"
-        },
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "ngkrpTX7z"
-          },
-          "expr": "rate(forum{code=\"404\",service=\"forum\"}[1m])",
-          "refId": "A"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "ngkrpTX7z"
-          },
-          "expr": "rate(forum{code=\"400\",service=\"forum\",url=\"/api/service/status\"}[1m])",
-          "hide": false,
-          "refId": "B"
-        }
-      ],
-      "title": "Code Stat Error",
+      "title": "Latency",
       "type": "timeseries"
     }
   ],
@@ -1745,6 +1651,6 @@
   "timezone": "",
   "title": "Highload-3",
   "uid": "eUoKYXwnz",
-  "version": 1,
+  "version": 4,
   "weekStart": ""
 }
