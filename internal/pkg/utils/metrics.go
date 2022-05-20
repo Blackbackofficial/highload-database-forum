@@ -68,7 +68,7 @@ func (m *MetricsMiddleware) Register(name string) {
 	hist := prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Name:    "durations_stats",
 		Help:    "durations_stats",
-		Buckets: prometheus.LinearBuckets(0, 0.01, 50),
+		Buckets: prometheus.LinearBuckets(0, 0.01, 10),
 	}, []string{URL})
 	m.durations = hist
 
